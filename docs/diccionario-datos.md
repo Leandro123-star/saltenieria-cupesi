@@ -208,7 +208,7 @@ id_metodo_pago	BIGINT	FK, NN, USR	Método elegido
 •	Una sucursal podrá tener como máximo una caja abierta simultáneamente. Esta regla se implementará en PostgreSQL mediante un índice único parcial sobre id_sucursal condicionado a estado = 'ABIERTA'. Los únicos estados permitidos para cajas son ABIERTA y CERRADA.
 •	El efectivo esperado se calcula como monto_inicial + pagos en efectivo, y la diferencia como efectivo_contado − efectivo_esperado. Los pagos QR y transferencia bancaria no aumentan el efectivo esperado. Ambos valores se calculan y muestran después de guardar el cierre.
 •	La recuperación automática de contraseñas por correo electrónico está fuera del alcance. El restablecimiento será realizado por un administrador autorizado; usuarios utiliza nombre_usuario y password_hash.
-•	La contraseña ingresada debe tener entre 8 y 255 caracteres. Este límite se aplica a la contraseña original, no al hash almacenado en password_hash.
+•	La contraseña ingresada debe tener entre 8 y 50 caracteres. Este límite se aplica a la contraseña original, no al hash almacenado en password_hash.
 •	Las contraseñas se almacenan exclusivamente como hashes generados mediante Laravel Hash; nunca se almacenan en texto plano.
 •	El diseño de rol múltiple reemplaza la decisión anterior de un rol por usuario; la autorización debe comprobar los permisos acumulados de todos sus roles.
     
