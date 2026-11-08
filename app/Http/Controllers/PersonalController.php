@@ -21,13 +21,13 @@ class PersonalController extends Controller
                 ->orWhere('apellidos', 'ilike', "%{$search}%")))
             ->orderBy('apellidos')->paginate(15);
 
-        return response()->json($personal);
+        return $request->expectsJson() ? response()->json($personal) : view('personal.index', compact('personal'));
     }
 
     public function create()
     {
         $this->authorizePermission('gestionar_personal');
-        return response()->json(['message' => 'Formulario de personal pendiente.']);
+        return view('personal.form', ['persona' => new Personal]);
     }
 
     public function store(Request $request)
@@ -42,13 +42,14 @@ class PersonalController extends Controller
         ]);
         $data['creado_por'] = auth()->id();
 
-        return response()->json(Personal::create($data), 201);
+        $persona = Personal::create($data);
+        return $request->expectsJson() ? response()->json($persona, 201) : redirect()->route('personal.index')->with('success', 'Personal registrado.');
     }
 
     public function show(Personal $personal)
     {
         $this->authorizePermission('gestionar_personal');
-        return response()->json($personal->load('usuario'));
+        return request()->expectsJson() ? response()->json($personal->load('usuario')) : view('personal.form', ['persona' => $personal]);
     }
 
     public function edit(Personal $personal)
@@ -69,7 +70,7 @@ class PersonalController extends Controller
         $data['modificado_por'] = auth()->id();
         $personal->update($data);
 
-        return response()->json($personal->fresh());
+        return $request->expectsJson() ? response()->json($personal->fresh()) : redirect()->route('personal.index')->with('success', 'Personal actualizado.');
     }
 
     public function destroy(Personal $personal)
@@ -79,6 +80,6 @@ class PersonalController extends Controller
         $personal->save();
         $personal->delete();
 
-        return response()->json(['message' => 'Personal eliminado lógicamente.']);
+        return request()->expectsJson() ? response()->json(['message' => 'Personal eliminado lógicamente.']) : redirect()->route('personal.index')->with('success', 'Personal desactivado.');
     }
 }

@@ -10,16 +10,19 @@ class SucursalController extends Controller
 {
     use AuthorizesSistema;
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizePermission('gestionar_sucursales');
-        return response()->json(Sucursal::withCount(['productos', 'ventas'])->paginate(15));
+        $sucursales = Sucursal::withCount(['productos', 'ventas'])
+            ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
+            ->orderBy('nombre')->paginate(15)->withQueryString();
+        return $request->expectsJson() ? response()->json($sucursales) : view('sucursales.index', compact('sucursales'));
     }
 
     public function create()
     {
         $this->authorizePermission('gestionar_sucursales');
-        return response()->json(['message' => 'Formulario de sucursal pendiente.']);
+        return view('sucursales.form', ['sucursal' => new Sucursal]);
     }
 
     public function store(Request $request)
@@ -32,13 +35,14 @@ class SucursalController extends Controller
             'activo' => ['required', 'boolean'],
         ]);
         $data['creado_por'] = auth()->id();
-        return response()->json(Sucursal::create($data), 201);
+        $sucursal = Sucursal::create($data);
+        return $request->expectsJson() ? response()->json($sucursal, 201) : redirect()->route('sucursales.index')->with('success', 'Sucursal registrada.');
     }
 
     public function show(Sucursal $sucursal)
     {
         $this->authorizePermission('gestionar_sucursales');
-        return response()->json($sucursal->load(['usuarios', 'productos']));
+        return request()->expectsJson() ? response()->json($sucursal->load(['usuarios', 'productos'])) : view('sucursales.form', compact('sucursal'));
     }
 
     public function edit(Sucursal $sucursal)
@@ -57,7 +61,7 @@ class SucursalController extends Controller
         ]);
         $data['modificado_por'] = auth()->id();
         $sucursal->update($data);
-        return response()->json($sucursal->fresh());
+        return $request->expectsJson() ? response()->json($sucursal->fresh()) : redirect()->route('sucursales.index')->with('success', 'Sucursal actualizada.');
     }
 
     public function destroy(Sucursal $sucursal)
@@ -67,6 +71,6 @@ class SucursalController extends Controller
         $sucursal->eliminado_por = auth()->id();
         $sucursal->save();
         $sucursal->delete();
-        return response()->json(['message' => 'Sucursal eliminada lógicamente.']);
+        return request()->expectsJson() ? response()->json(['message' => 'Sucursal eliminada lógicamente.']) : redirect()->route('sucursales.index')->with('success', 'Sucursal desactivada.');
     }
 }

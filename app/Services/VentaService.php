@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Caja;
 use App\Models\Producto;
 use App\Models\Venta;
+use App\Support\VentaCalculadora;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,16 +39,13 @@ class VentaService
                 if (! $stock || $stock->stock_actual < $item['cantidad']) {
                     throw ValidationException::withMessages(['detalles' => "Stock insuficiente para {$producto->nombre}."]);
                 }
-                $unitCentavos = (int) round(((float) $producto->precio) * 100);
-                $subtotalCentavos = $unitCentavos * (int) $item['cantidad'];
+                $unitCentavos = VentaCalculadora::aCentavos($producto->precio);
+                $subtotalCentavos = VentaCalculadora::subtotal($producto->precio, (int) $item['cantidad']);
                 $totalCentavos += $subtotalCentavos;
                 $detalles[] = compact('producto', 'stock', 'item', 'unitCentavos', 'subtotalCentavos');
             }
 
-            $pagosCentavos = array_sum(array_map(
-                fn (array $pago): int => (int) round(((float) $pago['importe']) * 100),
-                $data['pagos']
-            ));
+            $pagosCentavos = VentaCalculadora::totalPagos(array_column($data['pagos'], 'importe'));
             if ($pagosCentavos !== $totalCentavos) {
                 throw ValidationException::withMessages(['pagos' => 'La suma de los pagos debe coincidir con el total.']);
             }

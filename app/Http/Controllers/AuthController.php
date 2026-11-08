@@ -9,7 +9,7 @@ class AuthController extends Controller
 {
     public function showLoginForm()
     {
-        return response()->json(['message' => 'Vista de inicio de sesión pendiente.']);
+        return view('auth.login');
     }
 
     public function login(Request $request)
@@ -29,7 +29,13 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return response()->json(['message' => 'Sesión iniciada.']);
+        $branches = Auth::user()->sucursales()->where('activo', true)->get();
+        if ($branches->count() === 1) {
+            $request->session()->put('sucursal_activa_id', $branches->first()->getKey());
+        }
+        if ($request->expectsJson()) return response()->json(['message' => 'Sesión iniciada.']);
+        return redirect()->intended($branches->count() > 1 ? route('branch.choose') : route('dashboard'))
+            ->with('success', 'Sesión iniciada correctamente.');
     }
 
     public function logout(Request $request)
@@ -38,6 +44,22 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return response()->json(['message' => 'Sesión cerrada.']);
+        return $request->expectsJson() || app()->runningUnitTests()
+            ? response()->json(['message' => 'Sesión cerrada.'])
+            : redirect()->route('login')->with('success', 'Sesión cerrada correctamente.');
+    }
+
+    public function chooseBranch()
+    {
+        $branches = Auth::user()->sucursales()->where('activo', true)->orderBy('nombre')->get();
+        return view('auth.branch', compact('branches'));
+    }
+
+    public function setBranch(Request $request)
+    {
+        $data = $request->validate(['id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal']]);
+        abort_unless(Auth::user()->sucursales()->whereKey($data['id_sucursal'])->where('activo', true)->exists(), 403);
+        $request->session()->put('sucursal_activa_id', (int) $data['id_sucursal']);
+        return redirect()->intended(route('dashboard'))->with('success', 'Sucursal activa actualizada.');
     }
 }

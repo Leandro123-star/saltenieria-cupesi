@@ -6,6 +6,9 @@ use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Venta;
 use App\Services\VentaService;
 use Illuminate\Http\Request;
+use App\Models\Categoria;
+use App\Models\MetodoPago;
+use App\Models\Producto;
 
 class VentaController extends Controller
 {
@@ -31,13 +34,29 @@ class VentaController extends Controller
             $query->whereIn('id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
         }
 
-        return response()->json($query->latest('fecha_venta')->paginate(20));
+        $ventas = $query->latest('fecha_venta')->paginate(20)->withQueryString();
+        return $request->expectsJson() ? response()->json($ventas) : view('ventas.index', compact('ventas'));
     }
 
     public function create()
     {
         $this->authorizePermission('registrar_ventas');
-        return response()->json(['message' => 'Formulario de venta pendiente.']);
+        $branchId = session('sucursal_activa_id');
+        $productos = Producto::with('categoria')->where('activo', true)
+            ->whereHas('sucursales', fn ($q) => $q->where('sucursales.id_sucursal', $branchId))->get();
+        $categorias = Categoria::where('activo', true)->orderBy('nombre')->get();
+        $metodos = MetodoPago::where('activo', true)->orderBy('nombre')->get();
+        $cajaAbierta = \App\Models\Caja::where('id_sucursal', $branchId)->where('estado', 'ABIERTA')->exists();
+        $productosData = $productos->map(fn ($producto) => [
+            'id' => $producto->id_producto,
+            'name' => $producto->nombre,
+            'price' => (float) $producto->precio,
+            'category' => $producto->id_categoria,
+            'stock' => (int) ($producto->sucursales->firstWhere('id_sucursal', $branchId)?->pivot->stock_actual ?? 0),
+            'photo' => $producto->foto,
+        ])->values()->all();
+        $metodosData = $metodos->map(fn ($metodo) => ['id' => $metodo->id_metodo_pago, 'name' => $metodo->nombre])->values()->all();
+        return view('ventas.create', compact('productosData', 'metodosData', 'categorias', 'cajaAbierta', 'branchId'));
     }
 
     public function store(Request $request)
@@ -54,13 +73,23 @@ class VentaController extends Controller
             'pagos.*.verificado' => ['sometimes', 'boolean'],
         ]);
         $this->authorizeSucursal($data['id_sucursal']);
-        return response()->json($this->ventaService->registrar($data, auth()->id()), 201);
+        $venta = $this->ventaService->registrar($data, auth()->id());
+        return $request->expectsJson() ? response()->json($venta, 201) : redirect()->route('ventas.show', $venta)->with('success', 'Venta registrada correctamente.');
     }
 
     public function show(Venta $venta)
     {
         $this->authorizePermission('registrar_ventas');
         $this->authorizeSucursal($venta->id_sucursal);
-        return response()->json($venta->load(['usuario', 'sucursal', 'caja', 'detalles.producto', 'pagos.metodoPago']));
+        $venta->load(['usuario', 'sucursal', 'caja', 'detalles.producto', 'pagos.metodoPago']);
+        return request()->expectsJson() ? response()->json($venta) : view('ventas.show', compact('venta'));
+    }
+
+    public function receipt(Venta $venta)
+    {
+        $this->authorizePermission('registrar_ventas');
+        $this->authorizeSucursal($venta->id_sucursal);
+        $venta->load(['usuario', 'sucursal', 'detalles.producto', 'pagos.metodoPago']);
+        return view('ventas.receipt', compact('venta'));
     }
 }

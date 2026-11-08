@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Caja;
+use App\Support\CajaCalculadora;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +25,13 @@ class CajaController extends Controller
         if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists()) {
             $query->whereIn('id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
         }
-        return response()->json($query->latest('fecha_apertura')->paginate(20));
+        $cajas = $query->latest('fecha_apertura')->paginate(20)->withQueryString();
+        return $request->expectsJson() ? response()->json($cajas) : view('cajas.index', [
+            'cajas' => $cajas,
+            'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
+                ? \App\Models\Sucursal::where('activo', true)->get()
+                : auth()->user()->sucursales()->where('activo', true)->get(),
+        ]);
     }
 
     public function show(Caja $caja)
@@ -55,7 +62,7 @@ class CajaController extends Controller
                 'creado_por' => auth()->id(),
             ]);
         });
-        return response()->json($caja, 201);
+        return $request->expectsJson() ? response()->json($caja, 201) : redirect()->route('cajas.index')->with('success', 'Caja abierta correctamente.');
     }
 
     public function cerrar(Request $request, Caja $caja)
@@ -66,25 +73,25 @@ class CajaController extends Controller
         $caja = DB::transaction(function () use ($caja, $data): Caja {
             $caja = Caja::whereKey($caja->getKey())->lockForUpdate()->firstOrFail();
             if ($caja->estado !== 'ABIERTA') throw ValidationException::withMessages(['caja' => 'La caja ya está cerrada.']);
-            $efectivo = DB::table('venta_pago as vp')
+            $pagos = DB::table('venta_pago as vp')
                 ->join('ventas as v', 'v.id_venta', '=', 'vp.id_venta')
                 ->join('metodos_pago as mp', 'mp.id_metodo_pago', '=', 'vp.id_metodo_pago')
                 ->where('v.id_caja', $caja->getKey())
-                ->whereRaw('LOWER(mp.nombre) = ?', ['efectivo'])
-                ->sum('vp.importe');
-            $esperado = (float) $caja->monto_inicial + (float) $efectivo;
+                ->select('mp.nombre as metodo', 'vp.importe')
+                ->get();
+            $esperadoCentavos = CajaCalculadora::efectivoEsperado($caja->monto_inicial, $pagos->all());
             $caja->update([
                 'fecha_cierre' => now(),
                 'efectivo_contado' => $data['efectivo_contado'],
-                'efectivo_esperado' => $esperado,
-                'diferencia' => (float) $data['efectivo_contado'] - $esperado,
+                'efectivo_esperado' => number_format($esperadoCentavos / 100, 2, '.', ''),
+                'diferencia' => number_format(CajaCalculadora::diferencia($data['efectivo_contado'], $esperadoCentavos) / 100, 2, '.', ''),
                 'estado' => 'CERRADA',
                 'modificado_por' => auth()->id(),
                 'id_usuario_cierre' => auth()->id(),
             ]);
             return $caja->fresh();
         });
-        return response()->json($caja);
+        return $request->expectsJson() ? response()->json($caja) : redirect()->route('cajas.index')->with('success', 'Caja cerrada correctamente.');
     }
 
     public function estado(Request $request)

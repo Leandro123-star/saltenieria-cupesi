@@ -10,16 +10,19 @@ class CategoriaController extends Controller
 {
     use AuthorizesSistema;
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizePermission('gestionar_categorias');
-        return response()->json(Categoria::withCount('productos')->paginate(15));
+        $categorias = Categoria::withCount('productos')
+            ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
+            ->orderBy('nombre')->paginate(15)->withQueryString();
+        return $request->expectsJson() ? response()->json($categorias) : view('categorias.index', compact('categorias'));
     }
 
     public function create()
     {
         $this->authorizePermission('gestionar_categorias');
-        return response()->json(['message' => 'Formulario de categoría pendiente.']);
+        return view('categorias.form', ['categoria' => new Categoria]);
     }
 
     public function store(Request $request)
@@ -31,13 +34,14 @@ class CategoriaController extends Controller
             'activo' => ['required', 'boolean'],
         ]);
         $data['creado_por'] = auth()->id();
-        return response()->json(Categoria::create($data), 201);
+        $categoria = Categoria::create($data);
+        return $request->expectsJson() ? response()->json($categoria, 201) : redirect()->route('categorias.index')->with('success', 'Categoría registrada.');
     }
 
     public function show(Categoria $categoria)
     {
         $this->authorizePermission('gestionar_categorias');
-        return response()->json($categoria->load('productos'));
+        return request()->expectsJson() ? response()->json($categoria->load('productos')) : view('categorias.form', compact('categoria'));
     }
 
     public function edit(Categoria $categoria)
@@ -55,7 +59,7 @@ class CategoriaController extends Controller
         ]);
         $data['modificado_por'] = auth()->id();
         $categoria->update($data);
-        return response()->json($categoria->fresh());
+        return $request->expectsJson() ? response()->json($categoria->fresh()) : redirect()->route('categorias.index')->with('success', 'Categoría actualizada.');
     }
 
     public function destroy(Categoria $categoria)
@@ -65,6 +69,16 @@ class CategoriaController extends Controller
         $categoria->eliminado_por = auth()->id();
         $categoria->save();
         $categoria->delete();
-        return response()->json(['message' => 'Categoría eliminada lógicamente.']);
+        return request()->expectsJson() ? response()->json(['message' => 'Categoría eliminada lógicamente.']) : redirect()->route('categorias.index')->with('success', 'Categoría desactivada.');
+    }
+
+    public function restore(Request $request)
+    {
+        $this->authorizePermission('gestionar_categorias');
+        $data = $request->validate(['nombre' => ['required', 'string', 'max:30']]);
+        $categoria = Categoria::withTrashed()->where('nombre', $data['nombre'])->firstOrFail();
+        $categoria->restore();
+        $categoria->update(['activo' => true, 'modificado_por' => auth()->id()]);
+        return redirect()->route('categorias.index')->with('success', 'Categoría reactivada.');
     }
 }

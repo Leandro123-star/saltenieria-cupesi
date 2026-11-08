@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\MetodoPagoController;
 use App\Http\Controllers\PersonalController;
+use App\Http\Controllers\PermisoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\RolController;
@@ -16,7 +17,7 @@ use App\Http\Controllers\VentaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->view('auth.login');
 });
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -24,15 +25,20 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/sucursal-activa', [AuthController::class, 'chooseBranch'])->name('branch.choose');
+    Route::post('/sucursal-activa', [AuthController::class, 'setBranch'])->name('branch.set');
 
     Route::resource('personal', PersonalController::class);
     Route::resource('usuarios', UsuarioController::class);
     Route::post('usuarios/{usuario}/reset-password', [UsuarioController::class, 'resetPassword'])->name('usuarios.reset-password');
     Route::resource('roles', RolController::class)->parameters(['roles' => 'rol']);
     Route::post('roles/{rol}/permisos', [RolController::class, 'syncPermisos'])->name('roles.permisos');
+    Route::resource('permisos', PermisoController::class)->only(['index', 'store', 'update'])->parameters(['permisos' => 'permiso']);
     Route::resource('sucursales', SucursalController::class)->parameters(['sucursales' => 'sucursal']);
     Route::resource('categorias', CategoriaController::class);
+    Route::post('categorias/reactivar', [CategoriaController::class, 'restore'])->name('categorias.restore');
     Route::resource('productos', ProductoController::class);
+    Route::patch('productos/{producto}/stock', [ProductoController::class, 'updateStock'])->name('productos.stock');
     Route::resource('metodos-pago', MetodoPagoController::class)->parameters(['metodos-pago' => 'metodoPago']);
 
     Route::get('inventario', [InventarioController::class, 'index'])->name('inventario.index');
@@ -44,6 +50,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('ventas/create', [VentaController::class, 'create'])->name('ventas.create');
     Route::post('ventas', [VentaController::class, 'store'])->name('ventas.store');
     Route::get('ventas/{venta}', [VentaController::class, 'show'])->name('ventas.show');
+    Route::get('ventas/{venta}/comprobante', [VentaController::class, 'receipt'])->name('ventas.receipt');
 
     Route::get('cajas', [CajaController::class, 'index'])->name('cajas.index');
     Route::post('cajas/abrir', [CajaController::class, 'abrir'])->name('cajas.abrir');
