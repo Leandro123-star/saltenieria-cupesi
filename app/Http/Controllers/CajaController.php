@@ -22,8 +22,9 @@ class CajaController extends Controller
                 $this->authorizeSucursal($idSucursal);
                 $q->where('id_sucursal', $idSucursal);
             });
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists()) {
-            $query->whereIn('id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
+        $allowedBranches = $this->activeSucursalIds();
+        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+            $query->whereIn('id_sucursal', $allowedBranches);
         }
         $cajas = $query->latest('fecha_apertura')->paginate(20)->withQueryString();
         return $request->expectsJson() ? response()->json($cajas) : view('cajas.index', [

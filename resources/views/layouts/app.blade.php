@@ -12,6 +12,7 @@
 @php
     $permissions = auth()->user()->roles->where('activo', true)->flatMap->permisos->pluck('nombre')->unique();
     $admin = auth()->user()->roles->contains('nombre', 'Administrador');
+    $cajero = auth()->user()->roles->whereIn('nombre', ['Cajero', 'Cajero/Vendedor'])->isNotEmpty();
 @endphp
 <div class="app">
     <nav class="side">
@@ -26,6 +27,9 @@
         @if($admin || $permissions->contains('gestionar_categorias'))
             <a href="{{ route('categorias.index') }}" class="{{ request()->routeIs('categorias.*') ? 'on' : '' }}">▤ &nbsp; Categorías</a>
         @endif
+        @if($admin || $permissions->contains('gestionar_metodos_pago'))
+            <a href="{{ route('metodos-pago.index') }}" class="{{ request()->routeIs('metodos-pago.*') ? 'on' : '' }}">▤ &nbsp; Métodos de Pago</a>
+        @endif
         @if($admin || $permissions->contains('gestionar_caja'))
             <a href="{{ route('cajas.index') }}" class="{{ request()->routeIs('cajas.*') ? 'on' : '' }}">▣ &nbsp; Caja</a>
         @endif
@@ -35,11 +39,25 @@
         @if($admin || $permissions->contains('gestionar_personal'))
             <a href="{{ route('personal.index') }}" class="{{ request()->routeIs('personal.*') ? 'on' : '' }}">♙ &nbsp; Personal</a>
         @endif
+        @if($admin || $permissions->contains('gestionar_usuarios'))
+            <a href="{{ route('usuarios.index') }}" class="{{ request()->routeIs('usuarios.*') ? 'on' : '' }}">♟ &nbsp; Usuarios</a>
+        @endif
         @if($admin || $permissions->contains('gestionar_roles'))
             <a href="{{ route('roles.index') }}" class="{{ request()->routeIs('roles.*') ? 'on' : '' }}">⬡ &nbsp; Roles</a>
         @endif
         @if($admin || $permissions->contains('gestionar_permisos'))
             <a href="{{ route('permisos.index') }}" class="{{ request()->routeIs('permisos.*') ? 'on' : '' }}">⚿ &nbsp; Permisos</a>
+        @endif
+        @if($admin || $permissions->contains('generar_reportes'))
+            <details class="reports-menu" {{ request()->routeIs('reportes.*') ? 'open' : '' }}>
+                <summary>▥ &nbsp; Reportes</summary>
+                <a href="{{ route('reportes.ventas-periodo') }}" class="{{ request()->routeIs('reportes.ventas-periodo') ? 'on' : '' }}">Ventas por período</a>
+                <a href="{{ route('reportes.ventas-sucursal') }}" class="{{ request()->routeIs('reportes.ventas-sucursal') ? 'on' : '' }}">Ventas por sucursal</a>
+                <a href="{{ route('reportes.productos-mas-vendidos') }}" class="{{ request()->routeIs('reportes.productos-mas-vendidos') ? 'on' : '' }}">Productos más vendidos</a>
+                <a href="{{ route('reportes.existencias') }}" class="{{ request()->routeIs('reportes.existencias') ? 'on' : '' }}">Existencias</a>
+                <a href="{{ route('reportes.pagos') }}" class="{{ request()->routeIs('reportes.pagos') ? 'on' : '' }}">Pagos</a>
+                <a href="{{ route('reportes.cajas') }}" class="{{ request()->routeIs('reportes.cajas') ? 'on' : '' }}">Cajas</a>
+            </details>
         @endif
         <div class="sidebar-foot">{{ auth()->user()->personal?->nombres ?? auth()->user()->nombre_usuario }}<br>{{ auth()->user()->roles->pluck('nombre')->join(' · ') }}<br>{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</div>
     </nav>
@@ -48,7 +66,7 @@
             <h1>@yield('title', 'Cupesí')</h1>
             @if(session('sucursal_activa_id'))
                 <span class="chip">{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</span>
-                <a class="btn out small" href="{{ route('branch.choose') }}">Cambiar sucursal</a>
+                @if(!$cajero)<a class="btn out small" href="{{ route('branch.choose') }}">Cambiar sucursal</a>@endif
             @endif
             <form method="POST" action="{{ route('logout') }}">@csrf<button class="btn out small">Cerrar sesión</button></form>
         </header>

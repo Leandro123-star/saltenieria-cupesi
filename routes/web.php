@@ -28,6 +28,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/sucursal-activa', [AuthController::class, 'chooseBranch'])->name('branch.choose');
     Route::post('/sucursal-activa', [AuthController::class, 'setBranch'])->name('branch.set');
 
+    Route::middleware('sucursal.context')->group(function (): void {
     Route::resource('personal', PersonalController::class);
     Route::resource('usuarios', UsuarioController::class);
     Route::post('usuarios/{usuario}/reset-password', [UsuarioController::class, 'resetPassword'])->name('usuarios.reset-password');
@@ -39,6 +40,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('categorias/reactivar', [CategoriaController::class, 'restore'])->name('categorias.restore');
     Route::resource('productos', ProductoController::class);
     Route::patch('productos/{producto}/stock', [ProductoController::class, 'updateStock'])->name('productos.stock');
+    Route::post('metodos-pago/reactivar', [MetodoPagoController::class, 'restore'])->name('metodos-pago.restore');
     Route::resource('metodos-pago', MetodoPagoController::class)->parameters(['metodos-pago' => 'metodoPago']);
 
     Route::get('inventario', [InventarioController::class, 'index'])->name('inventario.index');
@@ -65,4 +67,5 @@ Route::middleware('auth')->group(function (): void {
     Route::get('reportes/pagos', [ReporteController::class, 'pagos'])->name('reportes.pagos');
     Route::get('reportes/cajas', [ReporteController::class, 'cajas'])->name('reportes.cajas');
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    });
 });

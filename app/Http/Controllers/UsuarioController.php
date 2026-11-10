@@ -8,6 +8,7 @@ use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class UsuarioController extends Controller
 {
@@ -16,13 +17,15 @@ class UsuarioController extends Controller
     public function index()
     {
         $this->authorizePermission('gestionar_usuarios');
-        return response()->json(Usuario::with(['personal', 'roles', 'sucursales'])->paginate(15));
+        $usuarios = Usuario::with(['personal', 'roles', 'sucursales'])->paginate(15);
+        return request()->expectsJson() ? response()->json($usuarios) : view('usuarios.index', compact('usuarios'));
     }
 
     public function create()
     {
         $this->authorizePermission('gestionar_usuarios');
-        return response()->json(['roles' => Rol::query()->get(), 'message' => 'Formulario pendiente.']);
+        $viewData = ['roles' => Rol::orderBy('nombre')->get(), 'sucursales' => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(), 'usuario' => new Usuario];
+        return request()->expectsJson() ? response()->json($viewData) : view('usuarios.form', $viewData);
     }
 
     public function store(Request $request)
@@ -40,6 +43,7 @@ class UsuarioController extends Controller
             'sucursales.*.fecha_asignacion' => ['nullable', 'date'],
             'sucursales.*.fecha_fin' => ['nullable', 'date'],
         ]);
+        $this->validateSucursalAssignment($data['roles'] ?? [], $data['sucursales'] ?? []);
 
         $usuario = DB::transaction(function () use ($data): Usuario {
             $roles = $data['roles'] ?? [];
@@ -60,13 +64,18 @@ class UsuarioController extends Controller
             return $usuario;
         });
 
-        return response()->json($usuario->load(['roles', 'sucursales']), 201);
+        return $request->expectsJson() ? response()->json($usuario->load(['roles', 'sucursales']), 201) : redirect()->route('usuarios.index')->with('success', 'Usuario registrado.');
     }
 
     public function show(Usuario $usuario)
     {
         $this->authorizePermission('gestionar_usuarios');
-        return response()->json($usuario->load(['personal', 'roles', 'sucursales']));
+        $usuario->load(['personal', 'roles', 'sucursales']);
+        return request()->expectsJson() ? response()->json($usuario) : view('usuarios.form', [
+            'usuario' => $usuario,
+            'roles' => Rol::orderBy('nombre')->get(),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(),
+        ]);
     }
 
     public function edit(Usuario $usuario)
@@ -88,13 +97,30 @@ class UsuarioController extends Controller
         ]);
         $roles = $data['roles'] ?? null;
         $sucursales = $data['sucursales'] ?? null;
+        $rolesForValidation = $data['roles'] ?? $usuario->roles()->pluck('roles.id_rol')->all();
+        $assignmentsForValidation = $sucursales ?? $usuario->sucursales()->get()->map(fn ($sucursal) => ['id_sucursal' => $sucursal->getKey()])->all();
+        $this->validateSucursalAssignment($rolesForValidation, $assignmentsForValidation);
         unset($data['roles'], $data['sucursales']);
         $data['modificado_por'] = auth()->id();
         $usuario->update($data);
         if ($roles !== null) $usuario->roles()->sync($roles);
         if ($sucursales !== null) $usuario->sucursales()->sync(collect($sucursales)->pluck('id_sucursal')->all());
 
-        return response()->json($usuario->fresh(['roles', 'sucursales']));
+        return $request->expectsJson() ? response()->json($usuario->fresh(['roles', 'sucursales'])) : redirect()->route('usuarios.index')->with('success', 'Usuario actualizado.');
+    }
+
+    private function validateSucursalAssignment(array $roleIds, array $sucursales): void
+    {
+        $isCajero = Rol::whereIn('id_rol', $roleIds)->whereIn('nombre', ['Cajero', 'Cajero/Vendedor'])->exists();
+        if ($isCajero && count($sucursales) !== 1) {
+            throw ValidationException::withMessages(['sucursales' => 'Un Cajero debe tener exactamente una sucursal asignada.']);
+        }
+        if ($isCajero && ! \App\Models\Sucursal::whereKey($sucursales[0]['id_sucursal'])->where('activo', true)->exists()) {
+            throw ValidationException::withMessages(['sucursales' => 'La sucursal asignada al Cajero debe estar activa.']);
+        }
+        if (count(collect($sucursales)->pluck('id_sucursal')->unique()) !== count($sucursales)) {
+            throw ValidationException::withMessages(['sucursales' => 'No se puede asignar la misma sucursal más de una vez.']);
+        }
     }
 
     public function destroy(Usuario $usuario)

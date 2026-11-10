@@ -29,7 +29,10 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $branches = Auth::user()->sucursales()->where('activo', true)->get();
+        $branches = Auth::user()->sucursales()->where('activo', true)
+            ->where(function ($query): void {
+                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
+            })->get();
         if ($branches->count() === 1) {
             $request->session()->put('sucursal_activa_id', $branches->first()->getKey());
         }
@@ -51,14 +54,22 @@ class AuthController extends Controller
 
     public function chooseBranch()
     {
-        $branches = Auth::user()->sucursales()->where('activo', true)->orderBy('nombre')->get();
+        abort_if(Auth::user()->roles()->where('nombre', 'Cajero')->orWhere('nombre', 'Cajero/Vendedor')->exists(), 403, 'Los Cajeros no pueden cambiar de sucursal.');
+        $branches = Auth::user()->sucursales()->where('activo', true)
+            ->where(function ($query): void {
+                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
+            })->orderBy('nombre')->get();
         return view('auth.branch', compact('branches'));
     }
 
     public function setBranch(Request $request)
     {
+        abort_if(Auth::user()->roles()->where('nombre', 'Cajero')->orWhere('nombre', 'Cajero/Vendedor')->exists(), 403, 'Los Cajeros no pueden cambiar de sucursal.');
         $data = $request->validate(['id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal']]);
-        abort_unless(Auth::user()->sucursales()->whereKey($data['id_sucursal'])->where('activo', true)->exists(), 403);
+        abort_unless(Auth::user()->sucursales()->whereKey($data['id_sucursal'])->where('activo', true)
+            ->where(function ($query): void {
+                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
+            })->exists(), 403);
         $request->session()->put('sucursal_activa_id', (int) $data['id_sucursal']);
         return redirect()->intended(route('dashboard'))->with('success', 'Sucursal activa actualizada.');
     }

@@ -19,8 +19,9 @@ class DashboardController extends Controller
         $this->authorizePermission('visualizar_panel');
         $fecha = $request->date('fecha') ?? now();
         $query = DB::table('ventas as v')->whereDate('v.fecha_venta', $fecha);
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists()) {
-            $query->whereIn('v.id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
+        $allowedBranches = $this->activeSucursalIds();
+        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+            $query->whereIn('v.id_sucursal', $allowedBranches);
         }
         $summary = (clone $query)->selectRaw('COUNT(*) cantidad_ventas, COALESCE(SUM(total), 0) ingresos')->first();
         $byBranch = (clone $query)->join('sucursales as s', 's.id_sucursal', '=', 'v.id_sucursal')->select('s.nombre')->selectRaw('COUNT(*) cantidad, COALESCE(SUM(v.total), 0) total')->groupBy('s.id_sucursal', 's.nombre')->get();

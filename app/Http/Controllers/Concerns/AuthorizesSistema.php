@@ -24,8 +24,31 @@ trait AuthorizesSistema
     {
         $usuario = Auth::user();
 
-        return $usuario->roles()->where('nombre', 'Administrador')->exists()
-            || $usuario->sucursales()->whereKey($idSucursal)->exists();
+        // Mantiene compatibilidad con instalaciones antiguas donde el
+        // Administrador aún no tenía filas en usuario_sucursal. En cuanto
+        // tenga autorizaciones explícitas, solo puede usar esas sucursales.
+        if ($usuario->roles()->where('nombre', 'Administrador')->exists()
+            && ! $usuario->sucursales()->exists()) {
+            return true;
+        }
+
+        return $usuario->sucursales()
+            ->whereKey($idSucursal)
+            ->where('sucursales.activo', true)
+            ->where(function ($query): void {
+                $query->whereNull('usuario_sucursal.fecha_fin')
+                    ->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
+            })->exists();
+    }
+
+    protected function activeSucursalIds()
+    {
+        return Auth::user()->sucursales()
+            ->where('sucursales.activo', true)
+            ->where(function ($query): void {
+                $query->whereNull('usuario_sucursal.fecha_fin')
+                    ->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
+            })->pluck('sucursales.id_sucursal');
     }
 
     protected function authorizeSucursal(int $idSucursal): void

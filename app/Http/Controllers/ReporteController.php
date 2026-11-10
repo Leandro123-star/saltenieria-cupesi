@@ -16,8 +16,9 @@ class ReporteController extends Controller
             ->when($request->filled('desde'), fn ($q) => $q->whereDate('v.fecha_venta', '>=', $request->date('desde')))
             ->when($request->filled('hasta'), fn ($q) => $q->whereDate('v.fecha_venta', '<=', $request->date('hasta')))
             ->when($request->filled('id_sucursal'), fn ($q) => $q->where('v.id_sucursal', $request->integer('id_sucursal')));
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists()) {
-            $query->whereIn('v.id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
+        $allowedBranches = $this->activeSucursalIds();
+        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+            $query->whereIn('v.id_sucursal', $allowedBranches);
         }
         return $query;
     }

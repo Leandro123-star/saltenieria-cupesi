@@ -30,8 +30,9 @@ class VentaController extends Controller
                 $q->where('id_sucursal', $idSucursal);
             });
 
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists()) {
-            $query->whereIn('id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
+        $allowedBranches = $this->activeSucursalIds();
+        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+            $query->whereIn('id_sucursal', $allowedBranches);
         }
 
         $ventas = $query->latest('fecha_venta')->paginate(20)->withQueryString();
