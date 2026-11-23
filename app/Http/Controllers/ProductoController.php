@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Categoria;
 use App\Models\Producto;
+use App\Models\Sucursal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -61,15 +62,25 @@ class ProductoController extends Controller
     public function show(Producto $producto)
     {
         $this->authorizePermission('gestionar_productos');
-        return request()->expectsJson() ? response()->json($producto->load(['categoria', 'sucursales'])) : view('productos.form', [
+        $producto->load(['categoria', 'sucursales']);
+        if (request()->expectsJson()) {
+            return response()->json($producto);
+        }
+        return view('productos.show', [
             'producto' => $producto,
-            'categorias' => Categoria::where('activo', true)->orderBy('nombre')->get(),
+            'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
+                ? Sucursal::where('activo', true)->get()
+                : auth()->user()->sucursales()->where('activo', true)->get(),
         ]);
     }
 
     public function edit(Producto $producto)
     {
-        return $this->show($producto);
+        $this->authorizePermission('gestionar_productos');
+        return view('productos.form', [
+            'producto' => $producto,
+            'categorias' => Categoria::where('activo', true)->orderBy('nombre')->get(),
+        ]);
     }
 
     public function update(Request $request, Producto $producto)

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Caja;
+use App\Models\Sucursal;
+use App\Models\Venta;
 use App\Support\CajaCalculadora;
+use App\Support\VentaCalculadora;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,12 +19,15 @@ class CajaController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('gestionar_caja');
-        $query = Caja::with(['sucursal', 'usuarioApertura', 'usuarioCierre'])
+        $query = Caja::with(['sucursal', 'usuarioApertura.personal', 'usuarioCierre'])
             ->when($request->filled('id_sucursal'), function ($q) use ($request) {
                 $idSucursal = $request->integer('id_sucursal');
                 $this->authorizeSucursal($idSucursal);
                 $q->where('id_sucursal', $idSucursal);
-            });
+            })
+            ->when($request->filled('desde'), fn ($q) => $q->whereDate('fecha_apertura', '>=', $request->date('desde')))
+            ->when($request->filled('hasta'), fn ($q) => $q->whereDate('fecha_apertura', '<=', $request->date('hasta')))
+            ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->string('estado')->toString()));
         $allowedBranches = $this->activeSucursalIds();
         if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
             $query->whereIn('id_sucursal', $allowedBranches);
@@ -30,16 +36,38 @@ class CajaController extends Controller
         return $request->expectsJson() ? response()->json($cajas) : view('cajas.index', [
             'cajas' => $cajas,
             'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
-                ? \App\Models\Sucursal::where('activo', true)->get()
+                ? Sucursal::where('activo', true)
+                    ->when($allowedBranches->isNotEmpty(), fn ($q) => $q->whereIn('id_sucursal', $allowedBranches))
+                    ->orderBy('nombre')->get()
                 : auth()->user()->sucursales()->where('activo', true)->get(),
         ]);
     }
 
     public function show(Caja $caja)
     {
-        $this->authorizePermission('gestionar_caja');
+        $this->authorizeAnyPermission(['gestionar_caja', 'generar_reportes']);
+        abort_unless(
+            auth()->user()->roles()->where('nombre', 'Administrador')->exists(),
+            403,
+            'Solo el Administrador puede consultar el resultado de caja.'
+        );
         $this->authorizeSucursal($caja->id_sucursal);
-        return response()->json($caja->load(['sucursal', 'usuarioApertura', 'usuarioCierre', 'ventas.pagos.metodoPago']));
+        $caja->load(['sucursal', 'usuarioApertura.personal', 'usuarioCierre']);
+
+        $ventas = Venta::query()
+            ->with('pagos.metodoPago')
+            ->where('id_caja', $caja->getKey())
+            ->where('estado', 'CONFIRMADA')
+            ->latest('fecha_venta')
+            ->get();
+
+        $resultado = CajaCalculadora::resultado($caja, $ventas);
+
+        if (request()->expectsJson()) {
+            return response()->json($caja->setRelation('ventas', $ventas)->setAttribute('resultado', $resultado));
+        }
+
+        return view('cajas.show', compact('caja', 'resultado'));
     }
 
     public function abrir(Request $request)
@@ -70,7 +98,10 @@ class CajaController extends Controller
     {
         $this->authorizePermission('gestionar_caja');
         $this->authorizeSucursal($caja->id_sucursal);
-        $data = $request->validate(['efectivo_contado' => ['required', 'numeric', 'min:0']]);
+        $data = $request->validate([
+            'efectivo_contado' => ['required', 'numeric', 'min:0'],
+            'qr_verificado' => ['required', 'numeric', 'min:0'],
+        ]);
         $caja = DB::transaction(function () use ($caja, $data): Caja {
             $caja = Caja::whereKey($caja->getKey())->lockForUpdate()->firstOrFail();
             if ($caja->estado !== 'ABIERTA') throw ValidationException::withMessages(['caja' => 'La caja ya está cerrada.']);
@@ -78,14 +109,23 @@ class CajaController extends Controller
                 ->join('ventas as v', 'v.id_venta', '=', 'vp.id_venta')
                 ->join('metodos_pago as mp', 'mp.id_metodo_pago', '=', 'vp.id_metodo_pago')
                 ->where('v.id_caja', $caja->getKey())
+                ->where('v.estado', 'CONFIRMADA')
                 ->select('mp.nombre as metodo', 'vp.importe')
                 ->get();
-            $esperadoCentavos = CajaCalculadora::efectivoEsperado($caja->monto_inicial, $pagos->all());
+            $totales = CajaCalculadora::totalesPorMetodo($pagos->all());
+            $efectivoEsperado = VentaCalculadora::aCentavos($caja->monto_inicial) + $totales['efectivo'];
+            $qrEsperado = $totales['qr'];
+            $diferenciaEfectivo = CajaCalculadora::diferencia($data['efectivo_contado'], $efectivoEsperado);
+            $diferenciaQr = VentaCalculadora::aCentavos($data['qr_verificado']) - $qrEsperado;
             $caja->update([
                 'fecha_cierre' => now(),
                 'efectivo_contado' => $data['efectivo_contado'],
-                'efectivo_esperado' => number_format($esperadoCentavos / 100, 2, '.', ''),
-                'diferencia' => number_format(CajaCalculadora::diferencia($data['efectivo_contado'], $esperadoCentavos) / 100, 2, '.', ''),
+                'efectivo_esperado' => number_format($efectivoEsperado / 100, 2, '.', ''),
+                'qr_verificado' => $data['qr_verificado'],
+                'qr_esperado' => number_format($qrEsperado / 100, 2, '.', ''),
+                'diferencia' => number_format($diferenciaEfectivo / 100, 2, '.', ''),
+                'diferencia_qr' => number_format($diferenciaQr / 100, 2, '.', ''),
+                'diferencia_total' => number_format(($diferenciaEfectivo + $diferenciaQr) / 100, 2, '.', ''),
                 'estado' => 'CERRADA',
                 'modificado_por' => auth()->id(),
                 'id_usuario_cierre' => auth()->id(),

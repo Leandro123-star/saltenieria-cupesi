@@ -17,6 +17,14 @@ final class VentaCalculadora
         return (int) round(((float) $valor) * 100);
     }
 
+    /** Convierte diferencias monetarias firmadas sin aplicar validación de importes. */
+    public static function aCentavosFirmados(string|int|float $importe): int
+    {
+        $valor = number_format((float) $importe, 2, '.', '');
+
+        return (int) round(((float) $valor) * 100);
+    }
+
     public static function subtotal(string|int|float $precio, int $cantidad): int
     {
         if ($cantidad <= 0) {

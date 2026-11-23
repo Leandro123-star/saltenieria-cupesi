@@ -44,6 +44,9 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         Auth::logout();
+        // El contexto no debe sobrevivir al cierre de sesión, aunque el
+        // controlador cambie posteriormente su estrategia de invalidación.
+        $request->session()->forget('sucursal_activa_id');
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

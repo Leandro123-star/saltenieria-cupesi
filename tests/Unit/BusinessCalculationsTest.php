@@ -45,6 +45,13 @@ class BusinessCalculationsTest extends TestCase
         $this->assertSame(275, CajaCalculadora::diferencia('73.00', $esperado));
     }
 
+    public function test_convierte_diferencias_negativas_sin_relajar_validacion_de_importes(): void
+    {
+        $this->assertSame(-4400, VentaCalculadora::aCentavosFirmados('-44.00'));
+        $this->expectException(InvalidArgumentException::class);
+        VentaCalculadora::aCentavos('-44.00');
+    }
+
     public function test_rechaza_pago_no_positivo(): void
     {
         $this->expectException(InvalidArgumentException::class);

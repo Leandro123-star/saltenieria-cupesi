@@ -60,12 +60,18 @@ Route::middleware('auth')->group(function (): void {
     Route::post('cajas/{caja}/cerrar', [CajaController::class, 'cerrar'])->name('cajas.cerrar');
     Route::get('cajas/{caja}', [CajaController::class, 'show'])->name('cajas.show');
 
-    Route::get('reportes/ventas-periodo', [ReporteController::class, 'ventasPorPeriodo'])->name('reportes.ventas-periodo');
-    Route::get('reportes/ventas-sucursal', [ReporteController::class, 'ventasPorSucursal'])->name('reportes.ventas-sucursal');
-    Route::get('reportes/productos-mas-vendidos', [ReporteController::class, 'productosMasVendidos'])->name('reportes.productos-mas-vendidos');
-    Route::get('reportes/existencias', [ReporteController::class, 'existencias'])->name('reportes.existencias');
-    Route::get('reportes/pagos', [ReporteController::class, 'pagos'])->name('reportes.pagos');
-    Route::get('reportes/cajas', [ReporteController::class, 'cajas'])->name('reportes.cajas');
+     Route::get('reportes/ventas-periodo', [ReporteController::class, 'ventasPorPeriodo'])->name('reportes.ventas-periodo');
+     Route::get('reportes/ventas-periodo/pdf', [ReporteController::class, 'ventasPorPeriodoPdf'])->name('reportes.ventas-periodo.pdf');
+     Route::get('reportes/ventas-sucursal', [ReporteController::class, 'ventasPorSucursal'])->name('reportes.ventas-sucursal');
+     Route::get('reportes/ventas-sucursal/pdf', [ReporteController::class, 'ventasPorSucursalPdf'])->name('reportes.ventas-sucursal.pdf');
+     Route::get('reportes/productos-mas-vendidos', [ReporteController::class, 'productosMasVendidos'])->name('reportes.productos-mas-vendidos');
+     Route::get('reportes/productos-mas-vendidos/pdf', [ReporteController::class, 'productosMasVendidosPdf'])->name('reportes.productos-mas-vendidos.pdf');
+     Route::get('reportes/existencias', [ReporteController::class, 'existencias'])->name('reportes.existencias');
+     Route::get('reportes/existencias/pdf', [ReporteController::class, 'existenciasPdf'])->name('reportes.existencias.pdf');
+     Route::get('reportes/pagos', [ReporteController::class, 'pagos'])->name('reportes.pagos');
+     Route::get('reportes/pagos/pdf', [ReporteController::class, 'pagosPdf'])->name('reportes.pagos.pdf');
+     Route::get('reportes/cajas', [ReporteController::class, 'cajas'])->name('reportes.cajas');
+     Route::get('reportes/cajas/pdf', [ReporteController::class, 'cajasPdf'])->name('reportes.cajas.pdf');
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     });
 });

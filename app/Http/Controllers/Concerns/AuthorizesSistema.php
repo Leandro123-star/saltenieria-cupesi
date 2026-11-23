@@ -20,6 +20,17 @@ trait AuthorizesSistema
         abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');
     }
 
+    protected function authorizeAnyPermission(array $permissions): void
+    {
+        abort_unless(Auth::check(), 401);
+
+        $usuario = Auth::user();
+        $allowed = $usuario->roles()->where('nombre', 'Administrador')->exists()
+            || $usuario->roles()->whereHas('permisos', fn ($query) => $query->whereIn('nombre', $permissions))->exists();
+
+        abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');
+    }
+
     protected function canUseSucursal(int $idSucursal): bool
     {
         $usuario = Auth::user();

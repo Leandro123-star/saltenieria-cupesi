@@ -39,7 +39,7 @@
                     @endforeach
                 </td>
                 <td><span class="pill {{ $producto->activo ? '' : 'off' }}">{{ $producto->activo ? 'Activo' : 'Inactivo' }}</span></td>
-                <td><a class="btn out small" href="{{ route('productos.edit', $producto) }}">Editar</a></td>
+                <td><div class="actions"><a class="btn out small" href="{{ route('productos.show', $producto) }}">Ver detalle</a><a class="btn out small" href="{{ route('productos.edit', $producto) }}">Editar</a></div></td>
             </tr>
         @empty
             <tr><td colspan="6" class="muted">No hay productos registrados.</td></tr>

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
+use App\Models\Personal;
 use App\Models\Rol;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class UsuarioController extends Controller
@@ -24,7 +26,12 @@ class UsuarioController extends Controller
     public function create()
     {
         $this->authorizePermission('gestionar_usuarios');
-        $viewData = ['roles' => Rol::orderBy('nombre')->get(), 'sucursales' => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(), 'usuario' => new Usuario];
+        $viewData = [
+            'roles' => Rol::orderBy('nombre')->get(),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(),
+            'personal' => $this->eligiblePersonal(),
+            'usuario' => new Usuario,
+        ];
         return request()->expectsJson() ? response()->json($viewData) : view('usuarios.form', $viewData);
     }
 
@@ -34,7 +41,12 @@ class UsuarioController extends Controller
         $data = $request->validate([
             'nombre_usuario' => ['required', 'string', 'max:30', 'unique:usuarios,nombre_usuario'],
             'password' => ['required', 'string', 'min:8', 'max:50'],
-            'id_personal' => ['nullable', 'integer', 'unique:usuarios,id_personal', 'exists:personal,id_personal'],
+            'id_personal' => [
+                'required',
+                'integer',
+                'unique:usuarios,id_personal',
+                Rule::exists('personal', 'id_personal')->where(fn ($query) => $query->where('activo', true)),
+            ],
             'activo' => ['sometimes', 'boolean'],
             'roles' => ['sometimes', 'array'],
             'roles.*' => ['integer', 'exists:roles,id_rol'],
@@ -50,6 +62,10 @@ class UsuarioController extends Controller
             $sucursales = $data['sucursales'] ?? [];
             $password = $data['password'];
             unset($data['roles'], $data['sucursales'], $data['password']);
+            // El formulario no expone el estado al crear usuarios; los nuevos
+            // usuarios deben quedar activos salvo que una integración lo envíe
+            // explícitamente como false.
+            $data['activo'] = $data['activo'] ?? true;
             $data['password_hash'] = Hash::make($password);
             $data['creado_por'] = auth()->id();
             $usuario = Usuario::create($data);
@@ -75,6 +91,7 @@ class UsuarioController extends Controller
             'usuario' => $usuario,
             'roles' => Rol::orderBy('nombre')->get(),
             'sucursales' => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(),
+            'personal' => $this->eligiblePersonal($usuario),
         ]);
     }
 
@@ -88,7 +105,12 @@ class UsuarioController extends Controller
         $this->authorizePermission('gestionar_usuarios');
         $data = $request->validate([
             'nombre_usuario' => ['required', 'string', 'max:30', 'unique:usuarios,nombre_usuario,'.$usuario->getKey().',id_usuario'],
-            'id_personal' => ['nullable', 'integer', 'exists:personal,id_personal', 'unique:usuarios,id_personal,'.$usuario->getKey().',id_usuario'],
+            'id_personal' => [
+                'required',
+                'integer',
+                Rule::unique('usuarios', 'id_personal')->ignore($usuario->getKey(), 'id_usuario'),
+                Rule::exists('personal', 'id_personal')->where(fn ($query) => $query->where('activo', true)),
+            ],
             'activo' => ['sometimes', 'boolean'],
             'roles' => ['sometimes', 'array'],
             'roles.*' => ['integer', 'exists:roles,id_rol'],
@@ -101,10 +123,14 @@ class UsuarioController extends Controller
         $assignmentsForValidation = $sucursales ?? $usuario->sucursales()->get()->map(fn ($sucursal) => ['id_sucursal' => $sucursal->getKey()])->all();
         $this->validateSucursalAssignment($rolesForValidation, $assignmentsForValidation);
         unset($data['roles'], $data['sucursales']);
-        $data['modificado_por'] = auth()->id();
-        $usuario->update($data);
-        if ($roles !== null) $usuario->roles()->sync($roles);
-        if ($sucursales !== null) $usuario->sucursales()->sync(collect($sucursales)->pluck('id_sucursal')->all());
+        DB::transaction(function () use ($data, $roles, $sucursales, $usuario): void {
+            $data['modificado_por'] = auth()->id();
+            $usuario->update($data);
+            if ($roles !== null) $usuario->roles()->sync($roles);
+            if ($sucursales !== null) {
+                $usuario->sucursales()->sync(collect($sucursales)->pluck('id_sucursal')->all());
+            }
+        });
 
         return $request->expectsJson() ? response()->json($usuario->fresh(['roles', 'sucursales'])) : redirect()->route('usuarios.index')->with('success', 'Usuario actualizado.');
     }
@@ -121,6 +147,21 @@ class UsuarioController extends Controller
         if (count(collect($sucursales)->pluck('id_sucursal')->unique()) !== count($sucursales)) {
             throw ValidationException::withMessages(['sucursales' => 'No se puede asignar la misma sucursal más de una vez.']);
         }
+    }
+
+    private function eligiblePersonal(?Usuario $usuario = null)
+    {
+        $linkedPersonal = Usuario::query()
+            ->whereNotNull('id_personal')
+            ->when($usuario, fn ($query) => $query->where('id_usuario', '!=', $usuario->getKey()))
+            ->select('id_personal');
+
+        return Personal::query()
+            ->where('activo', true)
+            ->whereNotIn('id_personal', $linkedPersonal)
+            ->orderBy('apellidos')
+            ->orderBy('nombres')
+            ->get();
     }
 
     public function destroy(Usuario $usuario)
