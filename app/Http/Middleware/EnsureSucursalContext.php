@@ -12,7 +12,7 @@ class EnsureSucursalContext
     {
         $usuario = $request->user();
 
-        if (! $usuario || $usuario->roles()->where('nombre', 'Administrador')->exists()) {
+        if (! $usuario || $usuario->esAdministrador()) {
             return $next($request);
         }
 

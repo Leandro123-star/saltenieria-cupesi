@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Hash;
-use App\Models\Personal;
+use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Usuario;
 use Tests\TestCase;
@@ -70,29 +70,29 @@ class AuthenticationAndAuthorizationTest extends TestCase
         $admin = $this->createUsuario(['gestionar_usuarios'], [], 'Administrador');
         $administrador = Rol::firstOrCreate(['nombre' => 'Administrador'], ['descripcion' => 'Administrador', 'activo' => true]);
         $cajero = Rol::firstOrCreate(['nombre' => 'Cajero'], ['descripcion' => 'Cajero', 'activo' => true]);
-        $personalAdmin = Personal::create(['nombres' => 'Admin', 'apellidos' => 'Nuevo', 'activo' => true]);
-        $personalCajero = Personal::create(['nombres' => 'Cajero', 'apellidos' => 'Nuevo', 'activo' => true]);
+        $personaAdmin = Persona::create(['nombres' => 'Admin', 'apellidos' => 'Nuevo', 'activo' => true]);
+        $personaCajero = Persona::create(['nombres' => 'Cajero', 'apellidos' => 'Nuevo', 'activo' => true]);
 
         $adminResponse = $this->actingAs($admin)->postJson('/usuarios', [
             'nombre_usuario' => 'admin_nuevo',
             'password' => 'password123',
-            'id_personal' => $personalAdmin->getKey(),
-            'roles' => [$administrador->getKey()],
+            'id_persona' => $personaAdmin->getKey(),
+            'id_rol' => $administrador->getKey(),
         ]);
         $adminResponse->assertCreated()->assertJsonPath('activo', true);
 
         $cajeroResponse = $this->actingAs($admin)->postJson('/usuarios', [
             'nombre_usuario' => 'cajero_nuevo',
             'password' => 'password123',
-            'id_personal' => $personalCajero->getKey(),
-            'roles' => [$cajero->getKey()],
+            'id_persona' => $personaCajero->getKey(),
+            'id_rol' => $cajero->getKey(),
             'sucursales' => [['id_sucursal' => $sucursal->getKey()]],
         ]);
         $cajeroResponse->assertCreated()->assertJsonPath('activo', true);
 
         $nuevoCajero = Usuario::where('nombre_usuario', 'cajero_nuevo')->firstOrFail();
         $this->assertTrue($nuevoCajero->activo);
-        $this->assertTrue($nuevoCajero->roles->contains($cajero));
+        $this->assertSame($cajero->getKey(), $nuevoCajero->id_rol);
         $this->assertTrue($nuevoCajero->sucursales->contains($sucursal));
 
         $this->postJson('/login', [
@@ -109,9 +109,52 @@ class AuthenticationAndAuthorizationTest extends TestCase
         $this->actingAs($admin)->postJson('/usuarios', [
             'nombre_usuario' => 'cajero_incompleto',
             'password' => 'password123',
-            'roles' => [$cajero->getKey()],
+            'id_rol' => $cajero->getKey(),
         ])->assertStatus(422);
 
         $this->assertDatabaseMissing('usuarios', ['nombre_usuario' => 'cajero_incompleto']);
+    }
+
+    public function test_no_crea_usuario_sin_persona_o_sin_rol(): void
+    {
+        $admin = $this->createUsuario(['gestionar_usuarios'], [], 'Administrador');
+        $rol = Rol::firstOrCreate(['nombre' => 'Administrador'], ['descripcion' => 'Administrador', 'activo' => true]);
+        $persona = Persona::create(['nombres' => 'Sin', 'apellidos' => 'Rol', 'activo' => true]);
+
+        $this->actingAs($admin)->postJson('/usuarios', [
+            'nombre_usuario' => 'sin_persona',
+            'password' => 'password123',
+            'id_rol' => $rol->getKey(),
+        ])->assertStatus(422)->assertJsonValidationErrors('id_persona');
+
+        $this->actingAs($admin)->postJson('/usuarios', [
+            'nombre_usuario' => 'sin_rol',
+            'password' => 'password123',
+            'id_persona' => $persona->getKey(),
+        ])->assertStatus(422)->assertJsonValidationErrors('id_rol');
+
+        $this->assertDatabaseMissing('usuarios', ['nombre_usuario' => 'sin_persona']);
+        $this->assertDatabaseMissing('usuarios', ['nombre_usuario' => 'sin_rol']);
+    }
+
+    public function test_no_permite_dos_usuarios_para_la_misma_persona(): void
+    {
+        $admin = $this->createUsuario(['gestionar_usuarios'], [], 'Administrador');
+        $rol = Rol::firstOrCreate(['nombre' => 'Administrador'], ['descripcion' => 'Administrador', 'activo' => true]);
+        $persona = Persona::create(['nombres' => 'Unica', 'apellidos' => 'Persona', 'activo' => true]);
+
+        $this->actingAs($admin)->postJson('/usuarios', [
+            'nombre_usuario' => 'usuario_uno',
+            'password' => 'password123',
+            'id_persona' => $persona->getKey(),
+            'id_rol' => $rol->getKey(),
+        ])->assertCreated();
+
+        $this->actingAs($admin)->postJson('/usuarios', [
+            'nombre_usuario' => 'usuario_dos',
+            'password' => 'password123',
+            'id_persona' => $persona->getKey(),
+            'id_rol' => $rol->getKey(),
+        ])->assertStatus(422)->assertJsonValidationErrors('id_persona');
     }
 }

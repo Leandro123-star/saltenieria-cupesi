@@ -16,11 +16,11 @@ class MetodoPagoController extends Controller
         $metodos = MetodoPago::query()
             ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
             ->orderBy('nombre')->paginate(15)->withQueryString();
-        $eliminados = MetodoPago::onlyTrashed()->orderBy('nombre')->get(['id_metodo_pago', 'nombre', 'eliminado_el']);
+        $inactivos = MetodoPago::where('activo', false)->orderBy('nombre')->get(['id_metodo_pago', 'nombre']);
 
         return $request->expectsJson()
             ? response()->json($metodos)
-            : view('metodos-pago.index', compact('metodos', 'eliminados'));
+            : view('metodos-pago.index', compact('metodos', 'inactivos'));
     }
 
     public function create()
@@ -73,21 +73,18 @@ class MetodoPagoController extends Controller
     public function destroy(MetodoPago $metodoPago)
     {
         $this->authorizePermission('gestionar_metodos_pago');
-        abort_if($metodoPago->pagos()->exists(), 422, 'No se puede eliminar un método con historial de pagos.');
-        $metodoPago->eliminado_por = auth()->id();
-        $metodoPago->save();
-        $metodoPago->delete();
+        abort_if($metodoPago->pagos()->exists(), 422, 'No se puede desactivar un método con historial de pagos.');
+        $metodoPago->update(['activo' => false, 'modificado_por' => auth()->id()]);
         return $request->expectsJson()
-            ? response()->json(['message' => 'Método de pago eliminado lógicamente.'])
-            : redirect()->route('metodos-pago.index')->with('success', 'Método de pago eliminado lógicamente.');
+            ? response()->json(['message' => 'Método de pago desactivado.'])
+            : redirect()->route('metodos-pago.index')->with('success', 'Método de pago desactivado.');
     }
 
     public function restore(Request $request)
     {
         $this->authorizePermission('gestionar_metodos_pago');
         $data = $request->validate(['id_metodo_pago' => ['required', 'integer']]);
-        $metodoPago = MetodoPago::onlyTrashed()->findOrFail($data['id_metodo_pago']);
-        $metodoPago->restore();
+        $metodoPago = MetodoPago::findOrFail($data['id_metodo_pago']);
         $metodoPago->update(['activo' => true, 'modificado_por' => auth()->id()]);
 
         return $request->expectsJson()

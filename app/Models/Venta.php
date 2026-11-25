@@ -52,9 +52,21 @@ class Venta extends Model
         return $this->hasMany(DetalleVenta::class, 'id_venta', 'id_venta');
     }
 
+    public function productos()
+    {
+        return $this->belongsToMany(Producto::class, 'detalle_venta', 'id_venta', 'id_producto')
+            ->withPivot(['cantidad', 'precio_unitario', 'subtotal']);
+    }
+
     public function pagos()
     {
         return $this->hasMany(VentaPago::class, 'id_venta', 'id_venta');
+    }
+
+    public function metodosPago()
+    {
+        return $this->belongsToMany(MetodoPago::class, 'venta_pago', 'id_venta', 'id_metodo_pago')
+            ->withPivot(['importe', 'verificado']);
     }
 
     public function creadoPor()

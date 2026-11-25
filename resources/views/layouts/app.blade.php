@@ -60,9 +60,10 @@
 </head>
 <body>
 @php
-    $permissions = auth()->user()->roles->where('activo', true)->flatMap->permisos->pluck('nombre')->unique();
-    $admin = auth()->user()->roles->contains('nombre', 'Administrador');
-    $cajero = auth()->user()->roles->whereIn('nombre', ['Cajero', 'Cajero/Vendedor'])->isNotEmpty();
+    $rol = auth()->user()->rol;
+    $permissions = $rol && $rol->activo ? $rol->permisos->pluck('nombre')->unique() : collect();
+    $admin = $rol?->nombre === 'Administrador';
+    $cajero = in_array($rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true);
 @endphp
 <div class="app">
     <nav class="side" id="sidebar" aria-label="Menú principal">
@@ -87,8 +88,8 @@
             @if($admin || $permissions->contains('gestionar_sucursales'))
                 <a href="{{ route('sucursales.index') }}" class="{{ request()->routeIs('sucursales.*') ? 'on' : '' }}">⌂ &nbsp; Sucursales</a>
             @endif
-            @if($admin || $permissions->contains('gestionar_personal'))
-                <a href="{{ route('personal.index') }}" class="{{ request()->routeIs('personal.*') ? 'on' : '' }}">♙ &nbsp; Personal</a>
+            @if($admin || $permissions->contains('gestionar_personas'))
+                <a href="{{ route('personas.index') }}" class="{{ request()->routeIs('personas.*') ? 'on' : '' }}">♙ &nbsp; Personas</a>
             @endif
             @if($admin || $permissions->contains('gestionar_usuarios'))
                 <a href="{{ route('usuarios.index') }}" class="{{ request()->routeIs('usuarios.*') ? 'on' : '' }}">♟ &nbsp; Usuarios</a>
@@ -111,7 +112,7 @@
                 </details>
             @endif
         </div>
-        <div class="sidebar-foot">{{ auth()->user()->personal?->nombres ?? auth()->user()->nombre_usuario }}<br>{{ auth()->user()->roles->pluck('nombre')->join(' · ') }}<br>{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</div>
+        <div class="sidebar-foot">{{ auth()->user()->persona?->nombres ?? auth()->user()->nombre_usuario }}<br>{{ auth()->user()->rol?->nombre }}<br>{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</div>
     </nav>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <main>

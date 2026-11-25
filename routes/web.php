@@ -6,7 +6,7 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\MetodoPagoController;
-use App\Http\Controllers\PersonalController;
+use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\PermisoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ReporteController;
@@ -17,7 +17,7 @@ use App\Http\Controllers\VentaController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return response()->view('auth.login');
+    return redirect()->route('login');
 });
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/sucursal-activa', [AuthController::class, 'setBranch'])->name('branch.set');
 
     Route::middleware('sucursal.context')->group(function (): void {
-    Route::resource('personal', PersonalController::class);
+    Route::resource('personas', PersonaController::class);
     Route::resource('usuarios', UsuarioController::class);
     Route::post('usuarios/{usuario}/reset-password', [UsuarioController::class, 'resetPassword'])->name('usuarios.reset-password');
     Route::resource('roles', RolController::class)->parameters(['roles' => 'rol']);

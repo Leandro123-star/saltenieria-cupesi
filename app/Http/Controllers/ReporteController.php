@@ -114,7 +114,7 @@ class ReporteController extends Controller
         }
 
         $allowed = $this->activeSucursalIds();
-        $admin = auth()->user()->roles()->where('nombre', 'Administrador')->exists();
+        $admin = auth()->user()->esAdministrador();
         if (! $admin || $allowed->isNotEmpty()) {
             $query->whereIn($column, $allowed);
         }
@@ -125,7 +125,7 @@ class ReporteController extends Controller
     private function reportBranches()
     {
         $allowed = $this->activeSucursalIds();
-        $admin = auth()->user()->roles()->where('nombre', 'Administrador')->exists();
+        $admin = auth()->user()->esAdministrador();
 
         return Sucursal::query()->where('activo', true)
             ->when(! $admin || $allowed->isNotEmpty(), fn ($q) => $q->whereIn('id_sucursal', $allowed))
@@ -139,7 +139,7 @@ class ReporteController extends Controller
         $base = $this->salesBase($request, $filters);
         $rows = (clone $base)->join('sucursales as s', 's.id_sucursal', '=', 'v.id_sucursal')
             ->leftJoin('usuarios as u', 'u.id_usuario', '=', 'v.id_usuario')
-            ->leftJoin('personal as per', 'per.id_personal', '=', 'u.id_personal')
+            ->leftJoin('personas as per', 'per.id_persona', '=', 'u.id_persona')
             ->select('v.id_venta', 'v.fecha_venta', 'v.total', 'v.estado', 's.nombre as sucursal')
             ->selectRaw("COALESCE(NULLIF(CONCAT_WS(' ', per.nombres, per.apellidos), ''), u.nombre_usuario, '—') as cajero")
             ->orderByDesc('v.fecha_venta')->get();
@@ -243,7 +243,7 @@ class ReporteController extends Controller
         $idSucursal = ! empty($filters['id_sucursal']) ? (int) $filters['id_sucursal'] : null;
 
         $query = Caja::query()
-            ->with(['sucursal', 'usuarioApertura.personal'])
+            ->with(['sucursal', 'usuarioApertura.persona'])
             ->when($filters['desde'] ?? null, fn ($q, $date) => $q->whereDate('cajas.fecha_apertura', '>=', $date))
             ->when($filters['hasta'] ?? null, fn ($q, $date) => $q->whereDate('cajas.fecha_apertura', '<=', $date))
             ->when($filters['estado'] ?? null, fn ($q, $state) => $q->where('cajas.estado', $state));
@@ -261,8 +261,8 @@ class ReporteController extends Controller
             return (object) [
                 'id_caja' => $caja->getKey(),
                 'sucursal' => $caja->sucursal?->nombre,
-                'responsable' => $caja->usuarioApertura?->personal
-                    ? trim($caja->usuarioApertura->personal->nombres.' '.$caja->usuarioApertura->personal->apellidos)
+                'responsable' => $caja->usuarioApertura?->persona
+                    ? trim($caja->usuarioApertura->persona->nombres.' '.$caja->usuarioApertura->persona->apellidos)
                     : ($caja->usuarioApertura?->nombre_usuario ?? '—'),
                 'fecha_apertura' => $caja->fecha_apertura,
                 'fecha_cierre' => $caja->fecha_cierre,
@@ -297,7 +297,7 @@ class ReporteController extends Controller
             ['label' => 'Estado', 'key' => 'estado'],
         ]);
 
-        $data['puedeVerDetalle'] = auth()->user()->roles()->where('nombre', 'Administrador')->exists();
+        $data['puedeVerDetalle'] = auth()->user()->esAdministrador();
 
         return $data;
     }

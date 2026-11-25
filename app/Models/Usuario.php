@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class Usuario extends Authenticatable
 {
-    use Notifiable, SoftDeletes;
+    use Notifiable;
 
     protected $table = 'usuarios';
 
@@ -22,10 +21,10 @@ class Usuario extends Authenticatable
         'nombre_usuario',
         'password_hash',
         'activo',
-        'id_personal',
+        'id_persona',
+        'id_rol',
         'creado_por',
         'modificado_por',
-        'eliminado_por',
     ];
 
     protected $hidden = [
@@ -37,24 +36,32 @@ class Usuario extends Authenticatable
         'activo' => 'boolean',
         'creado_el' => 'datetime',
         'modificado_el' => 'datetime',
-        'eliminado_el' => 'datetime',
     ];
-
-    public const DELETED_AT = 'eliminado_el';
 
     public function getAuthPasswordName(): string
     {
         return 'password_hash';
     }
 
-    public function personal()
+    public function persona()
     {
-        return $this->belongsTo(Personal::class, 'id_personal', 'id_personal');
+        return $this->belongsTo(Persona::class, 'id_persona', 'id_persona');
     }
 
-    public function roles()
+    public function rol()
     {
-        return $this->belongsToMany(Rol::class, 'usuario_rol', 'id_usuario', 'id_rol');
+        return $this->belongsTo(Rol::class, 'id_rol', 'id_rol');
+    }
+
+    public function esAdministrador(): bool
+    {
+        return $this->rol?->nombre === 'Administrador';
+    }
+
+    public function tienePermiso(string $permiso): bool
+    {
+        return $this->rol?->activo
+            && $this->rol->permisos()->where('nombre', $permiso)->exists();
     }
 
     public function sucursales()
@@ -86,10 +93,5 @@ class Usuario extends Authenticatable
     public function modificadoPor()
     {
         return $this->belongsTo(self::class, 'modificado_por', 'id_usuario');
-    }
-
-    public function eliminadoPor()
-    {
-        return $this->belongsTo(self::class, 'eliminado_por', 'id_usuario');
     }
 }

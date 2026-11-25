@@ -14,8 +14,8 @@ class RolePermissionTest extends TestCase
         $usuario = $this->createUsuario(['registrar_ventas'], [$sucursal]);
         $permiso = Permiso::where('nombre', 'registrar_ventas')->firstOrFail();
 
-        $this->assertTrue($usuario->roles()->exists());
-        $this->assertTrue($usuario->roles()->first()->permisos->contains($permiso));
+        $this->assertNotNull($usuario->rol);
+        $this->assertTrue($usuario->rol->permisos->contains($permiso));
         $this->assertTrue($usuario->sucursales->contains($sucursal));
         $this->assertSame($sucursal->getKey(), $usuario->sucursales->first()->pivot->id_sucursal);
     }

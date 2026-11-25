@@ -96,9 +96,9 @@ class VentaService
 
     private function authorizeSucursal(int $idSucursal, int $usuarioId): void
     {
-        $isAdmin = DB::table('usuario_rol as ur')
-            ->join('roles as r', 'r.id_rol', '=', 'ur.id_rol')
-            ->where('ur.id_usuario', $usuarioId)
+        $isAdmin = DB::table('usuarios as u')
+            ->join('roles as r', 'r.id_rol', '=', 'u.id_rol')
+            ->where('u.id_usuario', $usuarioId)
             ->where('r.nombre', 'Administrador')
             ->exists();
         $assigned = DB::table('usuario_sucursal')

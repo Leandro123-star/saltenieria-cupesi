@@ -3,12 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Categoria extends Model
 {
-    use SoftDeletes;
-
     protected $table = 'categorias';
 
     protected $primaryKey = 'id_categoria';
@@ -17,22 +14,18 @@ class Categoria extends Model
 
     public const UPDATED_AT = 'modificado_el';
 
-    public const DELETED_AT = 'eliminado_el';
-
     protected $fillable = [
         'nombre',
         'descripcion',
         'activo',
         'creado_por',
         'modificado_por',
-        'eliminado_por',
     ];
 
     protected $casts = [
         'activo' => 'boolean',
         'creado_el' => 'datetime',
         'modificado_el' => 'datetime',
-        'eliminado_el' => 'datetime',
     ];
 
     public function productos()
@@ -48,10 +41,5 @@ class Categoria extends Model
     public function modificadoPor()
     {
         return $this->belongsTo(Usuario::class, 'modificado_por', 'id_usuario');
-    }
-
-    public function eliminadoPor()
-    {
-        return $this->belongsTo(Usuario::class, 'eliminado_por', 'id_usuario');
     }
 }

@@ -3,12 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Producto extends Model
 {
-    use SoftDeletes;
-
     protected $table = 'productos';
 
     protected $primaryKey = 'id_producto';
@@ -16,8 +13,6 @@ class Producto extends Model
     public const CREATED_AT = 'creado_el';
 
     public const UPDATED_AT = 'modificado_el';
-
-    public const DELETED_AT = 'eliminado_el';
 
     protected $fillable = [
         'nombre',
@@ -28,7 +23,6 @@ class Producto extends Model
         'id_categoria',
         'creado_por',
         'modificado_por',
-        'eliminado_por',
     ];
 
     protected $casts = [
@@ -36,7 +30,6 @@ class Producto extends Model
         'activo' => 'boolean',
         'creado_el' => 'datetime',
         'modificado_el' => 'datetime',
-        'eliminado_el' => 'datetime',
     ];
 
     public function categoria()
@@ -55,6 +48,12 @@ class Producto extends Model
         return $this->hasMany(DetalleVenta::class, 'id_producto', 'id_producto');
     }
 
+    public function ventas()
+    {
+        return $this->belongsToMany(Venta::class, 'detalle_venta', 'id_producto', 'id_venta')
+            ->withPivot(['cantidad', 'precio_unitario', 'subtotal']);
+    }
+
     public function creadoPor()
     {
         return $this->belongsTo(Usuario::class, 'creado_por', 'id_usuario');
@@ -63,10 +62,5 @@ class Producto extends Model
     public function modificadoPor()
     {
         return $this->belongsTo(Usuario::class, 'modificado_por', 'id_usuario');
-    }
-
-    public function eliminadoPor()
-    {
-        return $this->belongsTo(Usuario::class, 'eliminado_por', 'id_usuario');
     }
 }

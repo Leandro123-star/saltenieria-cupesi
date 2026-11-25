@@ -22,7 +22,7 @@ class InventarioController extends Controller
             ->join('sucursales as s', 's.id_sucursal', '=', 'ps.id_sucursal')
             ->select('ps.*', 'p.nombre as producto', 'p.precio', 's.nombre as sucursal')
             ->when($idSucursal, fn ($q) => $q->where('ps.id_sucursal', $idSucursal))
-            ->when(! auth()->user()->roles()->where('nombre', 'Administrador')->exists(), function ($q) {
+            ->when(! auth()->user()->esAdministrador(), function ($q) {
                 $q->whereIn('ps.id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
             })
             ->orderBy('p.nombre')->paginate(20);

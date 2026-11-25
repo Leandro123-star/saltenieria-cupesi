@@ -11,11 +11,12 @@ trait AuthorizesSistema
         abort_unless(Auth::check(), 401);
 
         $usuario = Auth::user();
+        $rol = $usuario->rol;
 
-        $allowed = $usuario->roles()
-            ->where('nombre', 'Administrador')
-            ->orWhereHas('permisos', fn ($query) => $query->where('nombre', $permission))
-            ->exists();
+        $allowed = $rol && $rol->activo && (
+            $rol->nombre === 'Administrador'
+            || $rol->permisos()->where('nombre', $permission)->exists()
+        );
 
         abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');
     }
@@ -25,8 +26,12 @@ trait AuthorizesSistema
         abort_unless(Auth::check(), 401);
 
         $usuario = Auth::user();
-        $allowed = $usuario->roles()->where('nombre', 'Administrador')->exists()
-            || $usuario->roles()->whereHas('permisos', fn ($query) => $query->whereIn('nombre', $permissions))->exists();
+        $rol = $usuario->rol;
+
+        $allowed = $rol && $rol->activo && (
+            $rol->nombre === 'Administrador'
+            || $rol->permisos()->whereIn('nombre', $permissions)->exists()
+        );
 
         abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');
     }
@@ -38,7 +43,7 @@ trait AuthorizesSistema
         // Mantiene compatibilidad con instalaciones antiguas donde el
         // Administrador aún no tenía filas en usuario_sucursal. En cuanto
         // tenga autorizaciones explícitas, solo puede usar esas sucursales.
-        if ($usuario->roles()->where('nombre', 'Administrador')->exists()
+        if ($usuario->esAdministrador()
             && ! $usuario->sucursales()->exists()) {
             return true;
         }

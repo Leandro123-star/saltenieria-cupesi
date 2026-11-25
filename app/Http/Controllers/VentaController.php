@@ -31,7 +31,7 @@ class VentaController extends Controller
             });
 
         $allowedBranches = $this->activeSucursalIds();
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+        if (! auth()->user()->esAdministrador() || $allowedBranches->isNotEmpty()) {
             $query->whereIn('id_sucursal', $allowedBranches);
         }
 

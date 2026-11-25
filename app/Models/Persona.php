@@ -3,21 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Personal extends Model
+class Persona extends Model
 {
-    use SoftDeletes;
+    protected $table = 'personas';
 
-    protected $table = 'personal';
-
-    protected $primaryKey = 'id_personal';
+    protected $primaryKey = 'id_persona';
 
     public const CREATED_AT = 'creado_el';
 
     public const UPDATED_AT = 'modificado_el';
-
-    public const DELETED_AT = 'eliminado_el';
 
     protected $fillable = [
         'nombres',
@@ -27,19 +22,17 @@ class Personal extends Model
         'activo',
         'creado_por',
         'modificado_por',
-        'eliminado_por',
     ];
 
     protected $casts = [
         'activo' => 'boolean',
         'creado_el' => 'datetime',
         'modificado_el' => 'datetime',
-        'eliminado_el' => 'datetime',
     ];
 
     public function usuario()
     {
-        return $this->hasOne(Usuario::class, 'id_personal', 'id_personal');
+        return $this->hasOne(Usuario::class, 'id_persona', 'id_persona');
     }
 
     public function creadoPor()
@@ -50,10 +43,5 @@ class Personal extends Model
     public function modificadoPor()
     {
         return $this->belongsTo(Usuario::class, 'modificado_por', 'id_usuario');
-    }
-
-    public function eliminadoPor()
-    {
-        return $this->belongsTo(Usuario::class, 'eliminado_por', 'id_usuario');
     }
 }

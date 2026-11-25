@@ -67,10 +67,8 @@ class SucursalController extends Controller
     public function destroy(Sucursal $sucursal)
     {
         $this->authorizePermission('gestionar_sucursales');
-        abort_if($sucursal->ventas()->exists(), 422, 'No se puede eliminar una sucursal con ventas.');
-        $sucursal->eliminado_por = auth()->id();
-        $sucursal->save();
-        $sucursal->delete();
-        return request()->expectsJson() ? response()->json(['message' => 'Sucursal eliminada lógicamente.']) : redirect()->route('sucursales.index')->with('success', 'Sucursal desactivada.');
+        abort_if($sucursal->ventas()->exists(), 422, 'No se puede desactivar una sucursal con ventas.');
+        $sucursal->update(['activo' => false, 'modificado_por' => auth()->id()]);
+        return request()->expectsJson() ? response()->json(['message' => 'Sucursal desactivada.']) : redirect()->route('sucursales.index')->with('success', 'Sucursal desactivada.');
     }
 }

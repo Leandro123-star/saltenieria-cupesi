@@ -10,7 +10,7 @@
 <div class="heading"><div><h2>Detalle de caja #{{ $caja->id_caja }}</h2><span class="muted">Consulta histórica de solo lectura desde Reportes → Historial de caja</span></div><a class="btn out" href="{{ route('reportes.cajas') }}">Volver a Historial de caja</a></div>
 <div class="grid grid2"><div class="card"><h2>Información de la caja</h2><table>
     <tr><th>Sucursal</th><td>{{ $caja->sucursal?->nombre ?? '—' }}</td></tr>
-    <tr><th>Cajero responsable</th><td>{{ $caja->usuarioApertura?->personal ? trim($caja->usuarioApertura->personal->nombres.' '.$caja->usuarioApertura->personal->apellidos) : ($caja->usuarioApertura?->nombre_usuario ?? '—') }}</td></tr>
+    <tr><th>Cajero responsable</th><td>{{ $caja->usuarioApertura?->persona ? trim($caja->usuarioApertura->persona->nombres.' '.$caja->usuarioApertura->persona->apellidos) : ($caja->usuarioApertura?->nombre_usuario ?? '—') }}</td></tr>
     <tr><th>Fecha de apertura</th><td>{{ $date($caja->fecha_apertura) }}</td></tr><tr><th>Fecha de cierre</th><td>{{ $date($caja->fecha_cierre) }}</td></tr>
     <tr><th>Estado</th><td><span class="pill {{ $caja->estado === 'ABIERTA' ? '' : 'off' }}">{{ $caja->estado }}</span></td></tr>
 </table></div><div class="card"><h2>Ventas y cobros</h2><table>

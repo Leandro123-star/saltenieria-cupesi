@@ -57,7 +57,7 @@ class AuthController extends Controller
 
     public function chooseBranch()
     {
-        abort_if(Auth::user()->roles()->where('nombre', 'Cajero')->orWhere('nombre', 'Cajero/Vendedor')->exists(), 403, 'Los Cajeros no pueden cambiar de sucursal.');
+        abort_if(in_array(Auth::user()->rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true), 403, 'Los Cajeros no pueden cambiar de sucursal.');
         $branches = Auth::user()->sucursales()->where('activo', true)
             ->where(function ($query): void {
                 $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
@@ -67,7 +67,7 @@ class AuthController extends Controller
 
     public function setBranch(Request $request)
     {
-        abort_if(Auth::user()->roles()->where('nombre', 'Cajero')->orWhere('nombre', 'Cajero/Vendedor')->exists(), 403, 'Los Cajeros no pueden cambiar de sucursal.');
+        abort_if(in_array(Auth::user()->rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true), 403, 'Los Cajeros no pueden cambiar de sucursal.');
         $data = $request->validate(['id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal']]);
         abort_unless(Auth::user()->sucursales()->whereKey($data['id_sucursal'])->where('activo', true)
             ->where(function ($query): void {

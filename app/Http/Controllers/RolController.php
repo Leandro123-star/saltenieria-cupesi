@@ -74,11 +74,10 @@ class RolController extends Controller
     public function destroy(Rol $rol)
     {
         $this->authorizePermission('gestionar_roles');
-        abort_if(in_array($rol->nombre, ['Administrador', 'Cajero/Vendedor'], true), 422, 'El rol es esencial y no puede eliminarse.');
-        $rol->eliminado_por = auth()->id();
-        $rol->save();
-        $rol->delete();
-        return request()->expectsJson() ? response()->json(['message' => 'Rol eliminado lógicamente.']) : redirect()->route('roles.index')->with('success', 'Rol desactivado.');
+        abort_if($rol->usuarios()->exists(), 422, 'No se puede desactivar un rol con usuarios asignados.');
+        abort_if(in_array($rol->nombre, ['Administrador', 'Cajero/Vendedor'], true), 422, 'El rol es esencial y no puede desactivarse.');
+        $rol->update(['activo' => false, 'modificado_por' => auth()->id()]);
+        return request()->expectsJson() ? response()->json(['message' => 'Rol desactivado.']) : redirect()->route('roles.index')->with('success', 'Rol desactivado.');
     }
 
     public function syncPermisos(Request $request, Rol $rol)

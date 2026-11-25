@@ -23,7 +23,7 @@ return new class extends Migration
             $table->unsignedBigInteger('eliminado_por')->nullable();
             $table->foreign('id_categoria')->references('id_categoria')->on('categorias');
             $table->index('id_categoria', 'productos_categoria_index');
-        });
+        });-
     }
 
     public function down(): void

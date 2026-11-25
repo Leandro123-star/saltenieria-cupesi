@@ -25,7 +25,7 @@ class ProductoController extends Controller
         return $request->expectsJson() ? response()->json($producto) : view('productos.index', [
             'productos' => $producto,
             'categorias' => Categoria::orderBy('nombre')->get(),
-            'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
+            'sucursales' => auth()->user()->esAdministrador()
                 ? \App\Models\Sucursal::where('activo', true)->get()
                 : auth()->user()->sucursales()->where('activo', true)->get(),
         ]);
@@ -68,7 +68,7 @@ class ProductoController extends Controller
         }
         return view('productos.show', [
             'producto' => $producto,
-            'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
+            'sucursales' => auth()->user()->esAdministrador()
                 ? Sucursal::where('activo', true)->get()
                 : auth()->user()->sucursales()->where('activo', true)->get(),
         ]);
@@ -108,11 +108,9 @@ class ProductoController extends Controller
     public function destroy(Producto $producto)
     {
         $this->authorizePermission('gestionar_productos');
-        abort_if($producto->detallesVenta()->exists(), 422, 'No se puede eliminar un producto con historial de ventas.');
-        $producto->eliminado_por = auth()->id();
-        $producto->save();
-        $producto->delete();
-        return request()->expectsJson() ? response()->json(['message' => 'Producto eliminado lógicamente.']) : redirect()->route('productos.index')->with('success', 'Producto desactivado.');
+        abort_if($producto->detallesVenta()->exists(), 422, 'No se puede desactivar un producto con historial de ventas.');
+        $producto->update(['activo' => false, 'modificado_por' => auth()->id()]);
+        return request()->expectsJson() ? response()->json(['message' => 'Producto desactivado.']) : redirect()->route('productos.index')->with('success', 'Producto desactivado.');
     }
 
     public function updateStock(Request $request, Producto $producto)

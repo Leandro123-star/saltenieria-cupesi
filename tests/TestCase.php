@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Categoria;
 use App\Models\MetodoPago;
 use App\Models\Permiso;
+use App\Models\Persona;
 use App\Models\Producto;
 use App\Models\Rol;
 use App\Models\Sucursal;
@@ -68,12 +69,19 @@ abstract class TestCase extends BaseTestCase
         })->all();
         $role->permisos()->syncWithoutDetaching($permissionIds);
 
+        $persona = Persona::create([
+            'nombres' => 'Persona '.Str::random(6),
+            'apellidos' => 'Prueba',
+            'activo' => true,
+        ]);
+
         $usuario = Usuario::create([
             'nombre_usuario' => 'usuario_'.Str::lower(Str::random(10)),
             'password_hash' => Hash::make('password123'),
             'activo' => true,
+            'id_persona' => $persona->getKey(),
+            'id_rol' => $role->getKey(),
         ]);
-        $usuario->roles()->attach($role);
         if ($sucursales !== []) {
             $usuario->sucursales()->attach(collect($sucursales)->mapWithKeys(fn (Sucursal $sucursal) => [
                 $sucursal->getKey() => ['fecha_asignacion' => now()->toDateString()],

@@ -19,7 +19,7 @@ class CajaController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('gestionar_caja');
-        $query = Caja::with(['sucursal', 'usuarioApertura.personal', 'usuarioCierre'])
+        $query = Caja::with(['sucursal', 'usuarioApertura.persona', 'usuarioCierre'])
             ->when($request->filled('id_sucursal'), function ($q) use ($request) {
                 $idSucursal = $request->integer('id_sucursal');
                 $this->authorizeSucursal($idSucursal);
@@ -29,13 +29,13 @@ class CajaController extends Controller
             ->when($request->filled('hasta'), fn ($q) => $q->whereDate('fecha_apertura', '<=', $request->date('hasta')))
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->string('estado')->toString()));
         $allowedBranches = $this->activeSucursalIds();
-        if (! auth()->user()->roles()->where('nombre', 'Administrador')->exists() || $allowedBranches->isNotEmpty()) {
+        if (! auth()->user()->esAdministrador() || $allowedBranches->isNotEmpty()) {
             $query->whereIn('id_sucursal', $allowedBranches);
         }
         $cajas = $query->latest('fecha_apertura')->paginate(20)->withQueryString();
         return $request->expectsJson() ? response()->json($cajas) : view('cajas.index', [
             'cajas' => $cajas,
-            'sucursales' => auth()->user()->roles()->where('nombre', 'Administrador')->exists()
+            'sucursales' => auth()->user()->esAdministrador()
                 ? Sucursal::where('activo', true)
                     ->when($allowedBranches->isNotEmpty(), fn ($q) => $q->whereIn('id_sucursal', $allowedBranches))
                     ->orderBy('nombre')->get()
@@ -47,12 +47,12 @@ class CajaController extends Controller
     {
         $this->authorizeAnyPermission(['gestionar_caja', 'generar_reportes']);
         abort_unless(
-            auth()->user()->roles()->where('nombre', 'Administrador')->exists(),
+            auth()->user()->esAdministrador(),
             403,
             'Solo el Administrador puede consultar el resultado de caja.'
         );
         $this->authorizeSucursal($caja->id_sucursal);
-        $caja->load(['sucursal', 'usuarioApertura.personal', 'usuarioCierre']);
+        $caja->load(['sucursal', 'usuarioApertura.persona', 'usuarioCierre']);
 
         $ventas = Venta::query()
             ->with('pagos.metodoPago')

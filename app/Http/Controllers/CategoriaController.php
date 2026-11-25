@@ -65,19 +65,16 @@ class CategoriaController extends Controller
     public function destroy(Categoria $categoria)
     {
         $this->authorizePermission('gestionar_categorias');
-        abort_if($categoria->productos()->exists(), 422, 'No se puede eliminar una categoría con productos relacionados.');
-        $categoria->eliminado_por = auth()->id();
-        $categoria->save();
-        $categoria->delete();
-        return request()->expectsJson() ? response()->json(['message' => 'Categoría eliminada lógicamente.']) : redirect()->route('categorias.index')->with('success', 'Categoría desactivada.');
+        abort_if($categoria->productos()->exists(), 422, 'No se puede desactivar una categoría con productos relacionados.');
+        $categoria->update(['activo' => false, 'modificado_por' => auth()->id()]);
+        return request()->expectsJson() ? response()->json(['message' => 'Categoría desactivada.']) : redirect()->route('categorias.index')->with('success', 'Categoría desactivada.');
     }
 
     public function restore(Request $request)
     {
         $this->authorizePermission('gestionar_categorias');
         $data = $request->validate(['nombre' => ['required', 'string', 'max:30']]);
-        $categoria = Categoria::withTrashed()->where('nombre', $data['nombre'])->firstOrFail();
-        $categoria->restore();
+        $categoria = Categoria::where('nombre', $data['nombre'])->firstOrFail();
         $categoria->update(['activo' => true, 'modificado_por' => auth()->id()]);
         return redirect()->route('categorias.index')->with('success', 'Categoría reactivada.');
     }
