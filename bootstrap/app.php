@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Railway termina SSL en su proxy y reenvía por HTTP: se confía en sus
+        // headers X-Forwarded-* para que Laravel detecte el esquema https real.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias(['sucursal.context' => \App\Http\Middleware\EnsureSucursalContext::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
