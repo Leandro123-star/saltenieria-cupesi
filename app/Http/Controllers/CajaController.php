@@ -110,6 +110,7 @@ class CajaController extends Controller
                 ->join('metodos_pago as mp', 'mp.id_metodo_pago', '=', 'vp.id_metodo_pago')
                 ->where('v.id_caja', $caja->getKey())
                 ->where('v.estado', 'CONFIRMADA')
+                ->whereNull('vp.reemplazado_el')
                 ->select('mp.nombre as metodo', 'vp.importe')
                 ->get();
             $totales = CajaCalculadora::totalesPorMetodo($pagos->all());

@@ -51,7 +51,8 @@ class Producto extends Model
     public function ventas()
     {
         return $this->belongsToMany(Venta::class, 'detalle_venta', 'id_producto', 'id_venta')
-            ->withPivot(['cantidad', 'precio_unitario', 'subtotal']);
+            ->withPivot(['cantidad', 'precio_unitario', 'subtotal'])
+            ->wherePivotNull('reemplazado_el');
     }
 
     public function creadoPor()

@@ -15,7 +15,7 @@ trait AuthorizesSistema
 
         $allowed = $rol && $rol->activo && (
             $rol->nombre === 'Administrador'
-            || $rol->permisos()->where('nombre', $permission)->exists()
+            || $rol->permisos()->where('permisos.clave', $permission)->exists()
         );
 
         abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');
@@ -30,7 +30,7 @@ trait AuthorizesSistema
 
         $allowed = $rol && $rol->activo && (
             $rol->nombre === 'Administrador'
-            || $rol->permisos()->whereIn('nombre', $permissions)->exists()
+            || $rol->permisos()->whereIn('permisos.clave', $permissions)->exists()
         );
 
         abort_unless($allowed, 403, 'No tiene permiso para realizar esta operación.');

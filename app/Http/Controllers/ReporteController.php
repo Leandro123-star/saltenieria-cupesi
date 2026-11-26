@@ -183,6 +183,7 @@ class ReporteController extends Controller
         $filters['limite'] = (int) ($filters['limite'] ?? 10);
         $base = $this->salesBase($request, $filters);
         $rows = (clone $base)->join('detalle_venta as dv', 'dv.id_venta', '=', 'v.id_venta')
+            ->whereNull('dv.reemplazado_el')
             ->join('productos as p', 'p.id_producto', '=', 'dv.id_producto')
             ->leftJoin('categorias as c', 'c.id_categoria', '=', 'p.id_categoria')
             ->select('p.id_producto', 'p.nombre', 'c.nombre as categoria')
@@ -222,9 +223,11 @@ class ReporteController extends Controller
         $this->authorizePermission('generar_reportes');
         $filters = $this->validatePeriod($request);
         $base = $this->salesBase($request, $filters)->join('venta_pago as vp', 'vp.id_venta', '=', 'v.id_venta')->join('metodos_pago as mp', 'mp.id_metodo_pago', '=', 'vp.id_metodo_pago');
+        $base->whereNull('vp.reemplazado_el');
         $aggregated = (clone $base)->select('mp.id_metodo_pago', 'mp.nombre')->selectRaw('COUNT(vp.id_venta_pago) operaciones, COALESCE(SUM(vp.importe), 0) total')->groupBy('mp.id_metodo_pago', 'mp.nombre')->get()->keyBy('id_metodo_pago');
         $grandTotal = (float) $aggregated->sum('total');
-        $rows = MetodoPago::where('activo', true)->orderBy('nombre')->get()->map(function ($method) use ($aggregated, $grandTotal) {
+        // Activos + inactivos con pagos en el período, para conservar el historial.
+        $rows = MetodoPago::where('activo', true)->orWhereIn('id_metodo_pago', $aggregated->keys())->orderBy('nombre')->get()->map(function ($method) use ($aggregated, $grandTotal) {
             $item = $aggregated->get($method->id_metodo_pago);
             $row = (object) ['id_metodo_pago' => $method->id_metodo_pago, 'metodo' => $method->nombre, 'operaciones' => $item?->operaciones ?? 0, 'total' => (float) ($item?->total ?? 0)];
             $row->participacion = $grandTotal > 0 ? $row->total / $grandTotal * 100 : 0;

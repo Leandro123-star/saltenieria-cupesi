@@ -22,6 +22,7 @@ class VentaPago extends Model
     protected $casts = [
         'importe' => 'decimal:2',
         'verificado' => 'boolean',
+        'reemplazado_el' => 'datetime',
     ];
 
     public function venta()

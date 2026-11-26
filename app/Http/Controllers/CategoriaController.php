@@ -14,7 +14,6 @@ class CategoriaController extends Controller
     {
         $this->authorizePermission('gestionar_categorias');
         $categorias = Categoria::withCount('productos')
-            ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
             ->orderBy('nombre')->paginate(15)->withQueryString();
         return $request->expectsJson() ? response()->json($categorias) : view('categorias.index', compact('categorias'));
     }
@@ -65,17 +64,25 @@ class CategoriaController extends Controller
     public function destroy(Categoria $categoria)
     {
         $this->authorizePermission('gestionar_categorias');
-        abort_if($categoria->productos()->exists(), 422, 'No se puede desactivar una categoría con productos relacionados.');
+        if (! $categoria->activo) {
+            return request()->expectsJson()
+                ? response()->json(['message' => 'La categoría ya está inactiva.'])
+                : redirect()->route('categorias.index')->with('error', 'La categoría ya está inactiva.');
+        }
+        // Solo se marca como inactiva: los productos conservan su categoría.
         $categoria->update(['activo' => false, 'modificado_por' => auth()->id()]);
-        return request()->expectsJson() ? response()->json(['message' => 'Categoría desactivada.']) : redirect()->route('categorias.index')->with('success', 'Categoría desactivada.');
+        return request()->expectsJson() ? response()->json(['message' => 'Categoría desactivada correctamente.']) : redirect()->route('categorias.index')->with('success', 'Categoría desactivada correctamente.');
     }
 
-    public function restore(Request $request)
+    public function restore(Categoria $categoria)
     {
         $this->authorizePermission('gestionar_categorias');
-        $data = $request->validate(['nombre' => ['required', 'string', 'max:30']]);
-        $categoria = Categoria::where('nombre', $data['nombre'])->firstOrFail();
+        if ($categoria->activo) {
+            return request()->expectsJson()
+                ? response()->json(['message' => 'La categoría ya está activa.'])
+                : redirect()->route('categorias.index')->with('error', 'La categoría ya está activa.');
+        }
         $categoria->update(['activo' => true, 'modificado_por' => auth()->id()]);
-        return redirect()->route('categorias.index')->with('success', 'Categoría reactivada.');
+        return request()->expectsJson() ? response()->json(['message' => 'Categoría activada correctamente.']) : redirect()->route('categorias.index')->with('success', 'Categoría activada correctamente.');
     }
 }

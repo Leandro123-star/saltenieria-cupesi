@@ -45,6 +45,11 @@
         table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--muted);font-size:13px;padding:9px;border-bottom:1px solid var(--line)}td{padding:10px 9px;border-bottom:1px solid var(--line)}tr:hover td{background:#fbf4ee}.scroll{overflow:auto}.pill{display:inline-block;padding:2px 10px;border-radius:99px;background:#e3f2e8;color:#2f7d4f;font-size:12px;font-weight:600}.pill.off{background:#fdecea;color:#b42318}.muted{color:var(--muted)}
         .product-img{width:54px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.product-card{border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff}.product-card img{width:100%;height:90px;object-fit:cover;border-radius:8px}.product-card button{width:100%;border:0;background:none;text-align:left;cursor:pointer;font-weight:600;padding:5px 0}.cart-line{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:10px 0;gap:8px}.tot{display:flex;justify-content:space-between;font-size:20px;font-weight:700;padding:14px}
         .sidebar-overlay{display:none}
+        dialog.modal{width:min(460px,92vw);max-height:90dvh;overflow:auto;border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--card);color:var(--tx);box-shadow:0 18px 50px #0003}
+        dialog.modal::backdrop{background:#0007}
+        dialog.modal h2{margin:0 0 14px}
+        dialog.modal input[readonly]{background:#fbf4ee;color:var(--muted)}
+        .modal-actions{justify-content:flex-end;margin-top:6px}
         @media(max-width:900px){
             .app{display:block;min-height:100dvh}
             .side{position:fixed;inset:0 auto 0 0;width:min(300px,85vw);height:100dvh;max-height:none;transform:translateX(-100%);transition:transform .2s ease;box-shadow:8px 0 24px #0003}
@@ -61,9 +66,25 @@
 <body>
 @php
     $rol = auth()->user()->rol;
-    $permissions = $rol && $rol->activo ? $rol->permisos->pluck('nombre')->unique() : collect();
+    $permissions = $rol && $rol->activo ? $rol->permisos->pluck('clave')->unique() : collect();
     $admin = $rol?->nombre === 'Administrador';
     $cajero = in_array($rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true);
+    $moduleHeaders = [
+        'dashboard' => 'Panel principal',
+        'ventas.*' => 'Gestionar ventas',
+        'productos.*' => 'Gestionar productos',
+        'inventario.*' => 'Gestionar productos',
+        'categorias.*' => 'Gestionar categorías',
+        'metodos-pago.*' => 'Gestionar métodos de pago',
+        'cajas.*' => 'Gestionar caja',
+        'sucursales.*' => 'Gestionar sucursales',
+        'personas.*' => 'Gestionar personas',
+        'usuarios.*' => 'Gestionar usuarios',
+        'roles.*' => 'Gestionar roles',
+        'permisos.*' => 'Gestionar permisos',
+        'reportes.*' => 'Reportes',
+    ];
+    $moduleHeader = collect($moduleHeaders)->first(fn ($label, $pattern) => request()->routeIs($pattern));
 @endphp
 <div class="app">
     <nav class="side" id="sidebar" aria-label="Menú principal">
@@ -71,7 +92,7 @@
         <div class="sidebar-scroll">
             <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'on' : '' }}">▦ &nbsp; Panel</a>
             @if($admin || $permissions->contains('registrar_ventas'))
-                <a href="{{ route('ventas.create') }}" class="{{ request()->routeIs('ventas.*') ? 'on' : '' }}">🛒 &nbsp; Ventas</a>
+                <a href="{{ route('ventas.index') }}" class="{{ request()->routeIs('ventas.*') ? 'on' : '' }}">🛒 &nbsp; Ventas</a>
             @endif
             @if($admin || $permissions->contains('gestionar_productos'))
                 <a href="{{ route('productos.index') }}" class="{{ request()->routeIs('productos.*') ? 'on' : '' }}">◇ &nbsp; Productos</a>
@@ -118,7 +139,15 @@
     <main>
         <header class="top">
             <button class="menu-toggle" id="sidebarToggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">☰</button>
-            <h1>@yield('title', 'Cupesí')</h1>
+            <h1>
+                @hasSection('header')
+                    @yield('header')
+                @elseif($moduleHeader)
+                    {{ $moduleHeader }}
+                @else
+                    @yield('title', 'Cupesí')
+                @endif
+            </h1>
             @if(session('sucursal_activa_id'))
                 <span class="chip">{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</span>
                 @if(!$cajero)<a class="btn out small" href="{{ route('branch.choose') }}">Cambiar sucursal</a>@endif

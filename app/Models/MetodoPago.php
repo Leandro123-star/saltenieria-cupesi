@@ -35,7 +35,8 @@ class MetodoPago extends Model
     public function ventas()
     {
         return $this->belongsToMany(Venta::class, 'venta_pago', 'id_metodo_pago', 'id_venta')
-            ->withPivot(['importe', 'verificado']);
+            ->withPivot(['importe', 'verificado'])
+            ->wherePivotNull('reemplazado_el');
     }
 
     public function creadoPor()

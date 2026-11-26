@@ -61,7 +61,7 @@ class Usuario extends Authenticatable
     public function tienePermiso(string $permiso): bool
     {
         return $this->rol?->activo
-            && $this->rol->permisos()->where('nombre', $permiso)->exists();
+            && $this->rol->permisos()->where('permisos.clave', $permiso)->exists();
     }
 
     public function sucursales()

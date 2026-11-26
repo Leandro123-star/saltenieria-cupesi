@@ -37,10 +37,10 @@ Route::middleware('auth')->group(function (): void {
     Route::resource('permisos', PermisoController::class)->only(['index', 'store', 'update'])->parameters(['permisos' => 'permiso']);
     Route::resource('sucursales', SucursalController::class)->parameters(['sucursales' => 'sucursal']);
     Route::resource('categorias', CategoriaController::class);
-    Route::post('categorias/reactivar', [CategoriaController::class, 'restore'])->name('categorias.restore');
+    Route::patch('categorias/{categoria}/reactivar', [CategoriaController::class, 'restore'])->name('categorias.restore');
     Route::resource('productos', ProductoController::class);
     Route::patch('productos/{producto}/stock', [ProductoController::class, 'updateStock'])->name('productos.stock');
-    Route::post('metodos-pago/reactivar', [MetodoPagoController::class, 'restore'])->name('metodos-pago.restore');
+    Route::patch('metodos-pago/{metodoPago}/reactivar', [MetodoPagoController::class, 'restore'])->name('metodos-pago.restore');
     Route::resource('metodos-pago', MetodoPagoController::class)->parameters(['metodos-pago' => 'metodoPago']);
 
     Route::get('inventario', [InventarioController::class, 'index'])->name('inventario.index');
@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('ventas', [VentaController::class, 'index'])->name('ventas.index');
     Route::get('ventas/create', [VentaController::class, 'create'])->name('ventas.create');
     Route::post('ventas', [VentaController::class, 'store'])->name('ventas.store');
+    Route::get('ventas/{venta}/corregir', [VentaController::class, 'corregir'])->name('ventas.corregir');
+    Route::put('ventas/{venta}/corregir', [VentaController::class, 'actualizarCorreccion'])->name('ventas.corregir.update');
     Route::get('ventas/{venta}', [VentaController::class, 'show'])->name('ventas.show');
     Route::get('ventas/{venta}/comprobante', [VentaController::class, 'receipt'])->name('ventas.receipt');
 

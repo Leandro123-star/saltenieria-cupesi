@@ -9,6 +9,7 @@ use App\Models\Sucursal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ProductoController extends Controller
 {
@@ -49,7 +50,9 @@ class ProductoController extends Controller
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'precio' => ['required', 'numeric', 'gt:0'],
             'activo' => ['required', 'boolean'],
-            'id_categoria' => ['required', 'integer', 'exists:categorias,id_categoria'],
+            'id_categoria' => ['required', 'integer', Rule::exists('categorias', 'id_categoria')->where('activo', true)],
+        ], [
+            'id_categoria.exists' => 'La categoría seleccionada no está activa.',
         ]);
         if ($request->hasFile('foto')) {
             $data['foto'] = $request->file('foto')->store('productos', 'public');
@@ -79,7 +82,10 @@ class ProductoController extends Controller
         $this->authorizePermission('gestionar_productos');
         return view('productos.form', [
             'producto' => $producto,
-            'categorias' => Categoria::where('activo', true)->orderBy('nombre')->get(),
+            // Activas + la categoría actual del producto (aunque esté inactiva) para conservarla.
+            'categorias' => Categoria::where('activo', true)
+                ->orWhere('id_categoria', $producto->id_categoria)
+                ->orderBy('nombre')->get(),
         ]);
     }
 
@@ -92,7 +98,11 @@ class ProductoController extends Controller
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'precio' => ['required', 'numeric', 'gt:0'],
             'activo' => ['required', 'boolean'],
-            'id_categoria' => ['required', 'integer', 'exists:categorias,id_categoria'],
+            'id_categoria' => ['required', 'integer', Rule::exists('categorias', 'id_categoria')->where(
+                fn ($q) => $q->where('activo', true)->orWhere('id_categoria', $producto->id_categoria)
+            )],
+        ], [
+            'id_categoria.exists' => 'La categoría seleccionada no está activa.',
         ]);
         if ($request->hasFile('foto')) {
             if ($producto->foto) Storage::disk('public')->delete($producto->foto);

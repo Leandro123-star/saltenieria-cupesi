@@ -13,14 +13,11 @@ class MetodoPagoController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('gestionar_metodos_pago');
-        $metodos = MetodoPago::query()
-            ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
-            ->orderBy('nombre')->paginate(15)->withQueryString();
-        $inactivos = MetodoPago::where('activo', false)->orderBy('nombre')->get(['id_metodo_pago', 'nombre']);
+        $metodos = MetodoPago::query()->orderBy('nombre')->paginate(15)->withQueryString();
 
         return $request->expectsJson()
             ? response()->json($metodos)
-            : view('metodos-pago.index', compact('metodos', 'inactivos'));
+            : view('metodos-pago.index', compact('metodos'));
     }
 
     public function create()
@@ -73,22 +70,30 @@ class MetodoPagoController extends Controller
     public function destroy(MetodoPago $metodoPago)
     {
         $this->authorizePermission('gestionar_metodos_pago');
-        abort_if($metodoPago->pagos()->exists(), 422, 'No se puede desactivar un método con historial de pagos.');
+        if (! $metodoPago->activo) {
+            return $this->respuestaEstado('error', 'El método de pago ya está inactivo.');
+        }
+        // Solo cambia el estado: los pagos históricos conservan su método e importe.
         $metodoPago->update(['activo' => false, 'modificado_por' => auth()->id()]);
-        return $request->expectsJson()
-            ? response()->json(['message' => 'Método de pago desactivado.'])
-            : redirect()->route('metodos-pago.index')->with('success', 'Método de pago desactivado.');
+
+        return $this->respuestaEstado('success', 'Método de pago desactivado correctamente.');
     }
 
-    public function restore(Request $request)
+    public function restore(MetodoPago $metodoPago)
     {
         $this->authorizePermission('gestionar_metodos_pago');
-        $data = $request->validate(['id_metodo_pago' => ['required', 'integer']]);
-        $metodoPago = MetodoPago::findOrFail($data['id_metodo_pago']);
+        if ($metodoPago->activo) {
+            return $this->respuestaEstado('error', 'El método de pago ya está activo.');
+        }
         $metodoPago->update(['activo' => true, 'modificado_por' => auth()->id()]);
 
-        return $request->expectsJson()
-            ? response()->json($metodoPago->fresh())
-            : redirect()->route('metodos-pago.index')->with('success', 'Método de pago reactivado.');
+        return $this->respuestaEstado('success', 'Método de pago activado correctamente.');
+    }
+
+    private function respuestaEstado(string $tipo, string $mensaje)
+    {
+        return request()->expectsJson()
+            ? response()->json(['message' => $mensaje])
+            : redirect()->route('metodos-pago.index')->with($tipo, $mensaje);
     }
 }

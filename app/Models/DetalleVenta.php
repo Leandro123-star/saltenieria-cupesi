@@ -24,6 +24,7 @@ class DetalleVenta extends Model
         'cantidad' => 'integer',
         'precio_unitario' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'reemplazado_el' => 'datetime',
     ];
 
     public function venta()

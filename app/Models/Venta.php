@@ -49,24 +49,34 @@ class Venta extends Model
 
     public function detalles()
     {
-        return $this->hasMany(DetalleVenta::class, 'id_venta', 'id_venta');
+        return $this->hasMany(DetalleVenta::class, 'id_venta', 'id_venta')
+            ->whereNull('reemplazado_el');
     }
 
     public function productos()
     {
         return $this->belongsToMany(Producto::class, 'detalle_venta', 'id_venta', 'id_producto')
-            ->withPivot(['cantidad', 'precio_unitario', 'subtotal']);
+            ->withPivot(['cantidad', 'precio_unitario', 'subtotal'])
+            ->wherePivotNull('reemplazado_el');
     }
 
     public function pagos()
     {
-        return $this->hasMany(VentaPago::class, 'id_venta', 'id_venta');
+        return $this->hasMany(VentaPago::class, 'id_venta', 'id_venta')
+            ->whereNull('reemplazado_el');
     }
 
     public function metodosPago()
     {
         return $this->belongsToMany(MetodoPago::class, 'venta_pago', 'id_venta', 'id_metodo_pago')
-            ->withPivot(['importe', 'verificado']);
+            ->withPivot(['importe', 'verificado'])
+            ->wherePivotNull('reemplazado_el');
+    }
+
+    public function correcciones()
+    {
+        return $this->hasMany(VentaCorreccion::class, 'id_venta', 'id_venta')
+            ->latest('creado_el');
     }
 
     public function creadoPor()
