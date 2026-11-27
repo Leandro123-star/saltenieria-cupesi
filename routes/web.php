@@ -34,7 +34,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('usuarios/{usuario}/reset-password', [UsuarioController::class, 'resetPassword'])->name('usuarios.reset-password');
     Route::resource('roles', RolController::class)->parameters(['roles' => 'rol']);
     Route::post('roles/{rol}/permisos', [RolController::class, 'syncPermisos'])->name('roles.permisos');
-    Route::resource('permisos', PermisoController::class)->only(['index', 'store', 'update'])->parameters(['permisos' => 'permiso']);
+    Route::resource('permisos', PermisoController::class)->only(['index', 'create', 'store', 'update'])->parameters(['permisos' => 'permiso']);
     Route::resource('sucursales', SucursalController::class)->parameters(['sucursales' => 'sucursal']);
     Route::resource('categorias', CategoriaController::class);
     Route::patch('categorias/{categoria}/reactivar', [CategoriaController::class, 'restore'])->name('categorias.restore');

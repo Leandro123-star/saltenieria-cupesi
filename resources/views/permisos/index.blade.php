@@ -3,27 +3,7 @@
 @section('content')
 <div class="heading">
     <h2>Catálogo de permisos</h2>
-</div>
-
-<div class="card">
-    <form method="POST" action="{{ route('permisos.store') }}" class="formgrid">
-        @csrf
-        <div class="f">
-            <label for="nuevo-nombre">Nombre técnico *</label>
-            <input id="nuevo-nombre" name="nombre" placeholder="ej. visualizar panel" maxlength="30"
-                   pattern="[a-z][a-z0-9_]*( [a-z0-9_]+)*"
-                   title="Solo minúsculas, números, guiones bajos y espacios simples entre palabras"
-                   value="{{ old('permiso_id') ? '' : old('nombre') }}" required>
-        </div>
-        <div class="f">
-            <label for="nuevo-descripcion">Descripción</label>
-            <input id="nuevo-descripcion" name="descripcion" maxlength="100"
-                   value="{{ old('permiso_id') ? '' : old('descripcion') }}">
-        </div>
-        <div class="actions">
-            <button class="btn">Crear permiso</button>
-        </div>
-    </form>
+    <a class="btn" href="{{ route('permisos.create') }}">+ Nuevo permiso</a>
 </div>
 
 <div class="card scroll">

@@ -120,13 +120,27 @@ class UsuarioController extends Controller
             'activo' => ['sometimes', 'boolean'],
             'sucursales' => ['sometimes', 'array'],
             'sucursales.*.id_sucursal' => ['integer', 'exists:sucursales,id_sucursal'],
+            // Cambio de contraseña opcional: si ambos campos llegan vacíos se
+            // conserva la contraseña actual.
+            'password' => ['nullable', 'required_with:password_confirmation', 'string', 'min:8', 'max:50', 'confirmed'],
+            'password_confirmation' => ['nullable', 'string', 'max:50'],
+        ], [
+            'password.required_with' => 'Ingresa la nueva contraseña para poder confirmarla.',
+            'password.confirmed' => 'La confirmación no coincide con la nueva contraseña.',
+            'password.min' => 'La nueva contraseña debe tener al menos 8 caracteres.',
+            'password.max' => 'La nueva contraseña no puede superar los 50 caracteres.',
         ]);
+        $password = $data['password'] ?? null;
+        unset($data['password'], $data['password_confirmation']);
         $sucursales = $data['sucursales'] ?? null;
         $assignmentsForValidation = $sucursales ?? $usuario->sucursales()->get()->map(fn ($sucursal) => ['id_sucursal' => $sucursal->getKey()])->all();
         $this->validateSucursalAssignment((int) $data['id_rol'], $assignmentsForValidation);
         unset($data['sucursales']);
-        DB::transaction(function () use ($data, $sucursales, $usuario): void {
+        DB::transaction(function () use ($data, $sucursales, $usuario, $password): void {
             $data['modificado_por'] = auth()->id();
+            if ($password !== null) {
+                $data['password_hash'] = Hash::make($password);
+            }
             $usuario->update($data);
             if ($sucursales !== null) {
                 $usuario->sucursales()->sync(collect($sucursales)->pluck('id_sucursal')->all());

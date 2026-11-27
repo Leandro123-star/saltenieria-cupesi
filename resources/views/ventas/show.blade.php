@@ -91,19 +91,9 @@
             @endforelse
         </tbody>
     </table>
-</div>
-
-<div class="card">
-    <h2>Resumen económico</h2>
     <div class="tot">
         <span>Total de la venta</span>
         <span>Bs {{ number_format((float) $venta->total, 2, ',', '.') }}</span>
     </div>
-    @if($venta->pagos->isNotEmpty())
-        <div class="tot">
-            <span>Total pagado</span>
-            <span>Bs {{ number_format((float) $venta->pagos->sum('importe'), 2, ',', '.') }}</span>
-        </div>
-    @endif
 </div>
 @endsection

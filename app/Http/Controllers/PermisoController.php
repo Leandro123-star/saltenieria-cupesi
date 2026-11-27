@@ -19,6 +19,13 @@ class PermisoController extends Controller
         return $request->expectsJson() ? response()->json($permisos) : view('permisos.index', compact('permisos'));
     }
 
+    public function create()
+    {
+        $this->authorizePermission('gestionar_permisos');
+
+        return view('permisos.create');
+    }
+
     public function store(Request $request)
     {
         $this->authorizePermission('gestionar_permisos');

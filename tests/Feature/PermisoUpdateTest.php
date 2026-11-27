@@ -207,6 +207,67 @@ class PermisoUpdateTest extends TestCase
             ->assertSee('permisoModal', false);
     }
 
+    public function test_index_muestra_boton_nuevo_permiso_sin_formulario_de_alta(): void
+    {
+        $this->actingAs($this->admin())
+            ->get('/permisos')
+            ->assertOk()
+            ->assertSee('+ Nuevo permiso')
+            ->assertSee(route('permisos.create'), false)
+            ->assertDontSee('nuevo-nombre', false)
+            ->assertDontSee('Crear permiso');
+    }
+
+    public function test_vista_de_creacion_muestra_formulario(): void
+    {
+        $this->actingAs($this->admin())
+            ->get('/permisos/create')
+            ->assertOk()
+            ->assertSee('Gestionar permisos')
+            ->assertSee('Crear permiso')
+            ->assertSee('Nombre técnico')
+            ->assertSee('Descripción')
+            ->assertSee('Volver')
+            ->assertSee('name="nombre"', false)
+            ->assertSee(route('permisos.store'), false);
+    }
+
+    public function test_crear_desde_formulario_redirige_al_catalogo_con_mensaje(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->from('/permisos/create')
+            ->post('/permisos', ['nombre' => 'consultar  auditoria', 'descripcion' => 'Auditoría'])
+            ->assertRedirect('/permisos')
+            ->assertSessionHas('success', 'Permiso registrado.');
+
+        $this->assertDatabaseHas('permisos', ['nombre' => 'consultar auditoria', 'clave' => 'consultar_auditoria']);
+
+        $this->actingAs($admin)
+            ->get('/permisos')
+            ->assertOk()
+            ->assertSee('consultar auditoria');
+    }
+
+    public function test_crear_invalido_regresa_a_la_vista_de_creacion(): void
+    {
+        $this->actingAs($this->admin())
+            ->from('/permisos/create')
+            ->post('/permisos', ['nombre' => ''])
+            ->assertRedirect('/permisos/create')
+            ->assertSessionHasErrors('nombre');
+    }
+
+    public function test_usuario_sin_permiso_no_puede_ver_creacion(): void
+    {
+        $usuario = $this->createUsuario(['registrar_ventas'], [$this->createSucursal()]);
+
+        $this->actingAs($usuario)
+            ->get('/permisos/create')
+            ->assertForbidden();
+    }
+
     public function test_usuario_sin_permiso_no_puede_editar(): void
     {
         $usuario = $this->createUsuario(['registrar_ventas'], [$this->createSucursal()]);

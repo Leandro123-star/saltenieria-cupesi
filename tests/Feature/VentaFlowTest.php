@@ -150,10 +150,13 @@ class VentaFlowTest extends TestCase
             ->assertSee('Bs 7,66')
             ->assertSee('CONFIRMADA')
             ->assertSee('Volver al historial')
-            ->assertSeeInOrder(['Detalle de productos', 'Métodos de pago', 'Resumen económico'])
-            ->assertSee('Total pagado');
+            ->assertSeeInOrder(['Detalle de productos', 'Métodos de pago', 'Bs 12,34', 'Bs 7,66', 'Total de la venta', 'Bs 20,00'])
+            ->assertDontSee('Resumen económico')
+            ->assertDontSee('Total pagado')
+            ->assertDontSee('Saldo pendiente');
 
         $html = $response->getContent();
+        $this->assertSame(1, substr_count($html, 'Total de la venta'));
         $this->assertSame(1, substr_count($html, 'Bs 12,34'));
         $this->assertSame(1, substr_count($html, 'Bs 7,66'));
     }

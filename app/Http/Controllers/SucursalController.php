@@ -14,7 +14,6 @@ class SucursalController extends Controller
     {
         $this->authorizePermission('gestionar_sucursales');
         $sucursales = Sucursal::withCount(['productos', 'ventas'])
-            ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
             ->orderBy('nombre')->paginate(15)->withQueryString();
         return $request->expectsJson() ? response()->json($sucursales) : view('sucursales.index', compact('sucursales'));
     }

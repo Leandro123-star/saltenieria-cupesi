@@ -22,7 +22,9 @@ class ProductoController extends Controller
             ->with('categoria')
             ->when($request->filled('buscar'), fn ($q) => $q->where('nombre', 'ilike', '%'.$request->string('buscar')->toString().'%'))
             ->when($request->filled('id_categoria'), fn ($q) => $q->where('id_categoria', $request->integer('id_categoria')))
-            ->paginate(15);
+            ->orderBy('nombre')
+            ->paginate(15)
+            ->withQueryString();
         return $request->expectsJson() ? response()->json($producto) : view('productos.index', [
             'productos' => $producto,
             'categorias' => Categoria::orderBy('nombre')->get(),
