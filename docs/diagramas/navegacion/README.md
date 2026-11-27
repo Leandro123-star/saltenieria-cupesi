@@ -46,12 +46,16 @@ Para abrirlo: **StarUML → File → Open → `navegacion-modulos.mdj`**.
 
 ---
 
-# Diagrama de navegación por usuario — Cajero
+# Diagramas de navegación por usuario — Cajero
 
-Archivo StarUML: [`navegacion-cajero.mdj`](./navegacion-cajero.mdj)
+El Cajero tiene dos diagramas, uno por caso de uso:
 
-Para abrirlo: **StarUML → File → Open → `navegacion-cajero.mdj`**. El diagrama está en
-*Model Explorer → Navegación Cajero → Diagrama de navegación - Cajero (Gestionar venta y Gestionar caja)*.
+| Archivo | Contenido |
+|---|---|
+| [`navegacion-cajero-1-venta.mdj`](./navegacion-cajero-1-venta.mdj) | Gestionar venta |
+| [`navegacion-cajero-2-caja.mdj`](./navegacion-cajero-2-caja.mdj) | Gestionar caja |
+
+Para abrirlos: **StarUML → File → Open**. Cada archivo tiene un único diagrama en *Model Explorer*.
 
 Sigue el estilo de los ejemplos `docs/Diagrama de navegacion gestionar reserva.png` y
 `docs/Diagrama de navegacion gestionar tipopersona, gestionar persona, y gestionar persona.png`
@@ -88,18 +92,22 @@ Notas del diagrama: el Cajero tiene una sola sucursal (no puede cambiarla) y sol
 
 # Diagramas de navegación por usuario — Administrador
 
-El Administrador se divide en tres diagramas, agrupados por afinidad entre módulos. Todos comparten el inicio:
+El Administrador se divide en siete diagramas de dos módulos (o dos reportes) cada uno, para que sean legibles. Todos comparten el inicio:
 `«GET/login»` → `ps_login` → `pc_login` + `form_login` → `ps_login` (`login.store`); con una sucursal va al panel y con varias
 pasa por `ps_sucursal` (`branch.choose`) → `pc_sucursal` + `form_sucursal` → `branch.set` → `pc_dashboard`.
 Desde el panel puede volver a elegir sucursal (`«link GET/sucursal-activa»`).
 
-Ventas y Caja no se repiten aquí: el Administrador las usa igual que el Cajero (ver `navegacion-cajero.mdj`).
+Ventas y Caja no se repiten aquí: el Administrador las usa igual que el Cajero (ver `navegacion-cajero-1-venta.mdj` y `navegacion-cajero-2-caja.mdj`).
 
 | Archivo | Módulos | Contenido principal |
 |---|---|---|
-| [`navegacion-administrador-1-acceso.mdj`](./navegacion-administrador-1-acceso.mdj) | Personas, Usuarios, Roles, Permisos | CRUD con fila «crear» (arriba) y «editar» (abajo) de cada índice, búsqueda de personas, contraseña opcional al editar usuario, permisos del rol en su formulario, alta de permiso en página propia y edición en ventana modal |
-| [`navegacion-administrador-2-catalogo.mdj`](./navegacion-administrador-2-catalogo.mdj) | Sucursales, Categorías, Productos, Métodos de pago | CRUD, botones Desactivar (`DELETE`) / Activar (`PATCH …restore`), detalle de producto, filtro por nombre y categoría, actualización de stock por sucursal (`PATCH productos.stock`) |
-| [`navegacion-administrador-3-reportes.mdj`](./navegacion-administrador-3-reportes.mdj) | Reportes | Seis reportes (ventas por período, ventas por sucursal, productos más vendidos, existencias, totales por método de pago, historial de caja), cada uno con su filtro y exportación PDF; detalle de caja (arqueo) desde el historial |
+| [`navegacion-administrador-1-personas-usuarios.mdj`](./navegacion-administrador-1-personas-usuarios.mdj) | Personas, Usuarios | CRUD con fila «crear» (arriba) y «editar» (abajo), búsqueda de personas, contraseña opcional al editar usuario |
+| [`navegacion-administrador-2-roles-permisos.mdj`](./navegacion-administrador-2-roles-permisos.mdj) | Roles, Permisos | Permisos del rol en su formulario, alta de permiso en página propia y edición en ventana modal |
+| [`navegacion-administrador-3-sucursales-categorias.mdj`](./navegacion-administrador-3-sucursales-categorias.mdj) | Sucursales, Categorías | CRUD, botones Desactivar (`DELETE`) / Activar (`PATCH …restore`) |
+| [`navegacion-administrador-4-productos-metodos-pago.mdj`](./navegacion-administrador-4-productos-metodos-pago.mdj) | Productos, Métodos de pago | Detalle de producto, filtro por nombre y categoría, stock por sucursal (`PATCH productos.stock`), Desactivar / Activar método de pago |
+| [`navegacion-administrador-5-reportes-ventas.mdj`](./navegacion-administrador-5-reportes-ventas.mdj) | Reportes | Ventas por período, Ventas por sucursal (filtro + PDF) |
+| [`navegacion-administrador-6-reportes-productos.mdj`](./navegacion-administrador-6-reportes-productos.mdj) | Reportes | Productos más vendidos, Existencias por sucursal (filtro + PDF) |
+| [`navegacion-administrador-7-reportes-pagos-caja.mdj`](./navegacion-administrador-7-reportes-pagos-caja.mdj) | Reportes | Totales por método de pago, Historial de caja (filtro + PDF) y detalle de caja (arqueo) |
 
 La convención (`«server page»`, `«client page»`, `«form»`, `«build»`, `«link»`, `«submit»`, `«content»`, redirecciones) es la misma
 del diagrama del Cajero.

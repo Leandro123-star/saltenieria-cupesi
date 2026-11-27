@@ -7341,7 +7341,7 @@
 										"$ref": "RE9NRklOQUwAAAIq"
 									},
 									"edgePosition": 1,
-									"text": "registra"
+									"text": ""
 								},
 								{
 									"_type": "EdgeLabelView",
@@ -8151,7 +8151,7 @@
 										"$ref": "RE9NRklOQUwAAAJX"
 									},
 									"edgePosition": 1,
-									"text": "abre"
+									"text": ""
 								},
 								{
 									"_type": "EdgeLabelView",
@@ -8421,7 +8421,7 @@
 										"$ref": "RE9NRklOQUwAAAJm"
 									},
 									"edgePosition": 1,
-									"text": "cierra"
+									"text": ""
 								},
 								{
 									"_type": "EdgeLabelView",
@@ -9230,7 +9230,7 @@
 										"$ref": "RE9NRklOQUwAAAKT"
 									},
 									"edgePosition": 1,
-									"text": "registra"
+									"text": ""
 								},
 								{
 									"_type": "EdgeLabelView",
@@ -10120,7 +10120,6 @@
 							"_parent": {
 								"$ref": "RE9NRklOQUwAAAA7"
 							},
-							"name": "registra",
 							"end1": {
 								"_type": "UMLAssociationEnd",
 								"_id": "RE9NRklOQUwAAAIo",
@@ -10150,7 +10149,6 @@
 							"_parent": {
 								"$ref": "RE9NRklOQUwAAAA7"
 							},
-							"name": "abre",
 							"end1": {
 								"_type": "UMLAssociationEnd",
 								"_id": "RE9NRklOQUwAAAJV",
@@ -10180,7 +10178,6 @@
 							"_parent": {
 								"$ref": "RE9NRklOQUwAAAA7"
 							},
-							"name": "cierra",
 							"end1": {
 								"_type": "UMLAssociationEnd",
 								"_id": "RE9NRklOQUwAAAJk",
@@ -10210,7 +10207,6 @@
 							"_parent": {
 								"$ref": "RE9NRklOQUwAAAA7"
 							},
-							"name": "registra",
 							"end1": {
 								"_type": "UMLAssociationEnd",
 								"_id": "RE9NRklOQUwAAAKR",

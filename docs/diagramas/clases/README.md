@@ -16,9 +16,9 @@ tomados del esquema real (migraciones aplicadas en `saltenieria_test`).
 ### Cambios respecto al dominio inicial
 
 1. **Nueva clase `Venta_Correccion`**: auditoría de cada corrección de venta (motivo, totales anterior y posterior,
-   datos anteriores y posteriores en JSON, rol). Se relaciona con `Venta` (1 — *), `Usuario` (1 — *, registra),
+   datos anteriores y posteriores en JSON, rol). Se relaciona con `Venta` (1 — *), `Usuario` (1 — *),
    `Sucursal` (1 — *) y `Caja` (0..1 — *).
-2. **`Caja` — `Usuario` se divide en dos asociaciones**: quien la **abre** (1 — *) y quien la **cierra** (0..1 — *).
+2. **`Caja` — `Usuario` se divide en dos asociaciones sin nombre**: una para la apertura (1 — *) y otra para el cierre (0..1 — *).
 3. **Atributos agregados durante el desarrollo**: `Producto.foto`, `Permiso.clave` (clave interna estable),
    arqueo QR en `Caja` (`qr_verificado`, `qr_esperado`, `diferencia_qr`, `diferencia_total`) y `reemplazado_el`
    en `Detalle_Venta` y `Venta_Pago` (líneas sustituidas por una corrección).

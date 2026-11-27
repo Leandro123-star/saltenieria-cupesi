@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\Sucursal;
+use App\Support\Formatos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -28,9 +29,7 @@ class ProductoController extends Controller
         return $request->expectsJson() ? response()->json($producto) : view('productos.index', [
             'productos' => $producto,
             'categorias' => Categoria::orderBy('nombre')->get(),
-            'sucursales' => auth()->user()->esAdministrador()
-                ? \App\Models\Sucursal::where('activo', true)->get()
-                : auth()->user()->sucursales()->where('activo', true)->get(),
+            'sucursales' => auth()->user()->sucursalesAutorizadas()->orderBy('nombre')->get(),
         ]);
     }
 
@@ -47,15 +46,15 @@ class ProductoController extends Controller
     {
         $this->authorizePermission('gestionar_productos');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:50'],
+            'nombre' => ['required', 'string', 'max:50', 'regex:'.Formatos::NOMBRE_COMERCIAL],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
-            'precio' => ['required', 'numeric', 'gt:0'],
+            'precio' => ['required', 'numeric', 'gt:0', 'max:99999.99'],
             'activo' => ['required', 'boolean'],
             'id_categoria' => ['required', 'integer', Rule::exists('categorias', 'id_categoria')->where('activo', true)],
         ], [
             'id_categoria.exists' => 'La categoría seleccionada no está activa.',
-        ]);
+        ] + $this->mensajes());
         if ($request->hasFile('foto')) {
             $data['foto'] = $request->file('foto')->store('productos', 'public');
         }
@@ -73,9 +72,7 @@ class ProductoController extends Controller
         }
         return view('productos.show', [
             'producto' => $producto,
-            'sucursales' => auth()->user()->esAdministrador()
-                ? Sucursal::where('activo', true)->get()
-                : auth()->user()->sucursales()->where('activo', true)->get(),
+            'sucursales' => auth()->user()->sucursalesAutorizadas()->orderBy('nombre')->get(),
         ]);
     }
 
@@ -95,17 +92,17 @@ class ProductoController extends Controller
     {
         $this->authorizePermission('gestionar_productos');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:50'],
+            'nombre' => ['required', 'string', 'max:50', 'regex:'.Formatos::NOMBRE_COMERCIAL],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
-            'precio' => ['required', 'numeric', 'gt:0'],
+            'precio' => ['required', 'numeric', 'gt:0', 'max:99999.99'],
             'activo' => ['required', 'boolean'],
             'id_categoria' => ['required', 'integer', Rule::exists('categorias', 'id_categoria')->where(
                 fn ($q) => $q->where('activo', true)->orWhere('id_categoria', $producto->id_categoria)
             )],
         ], [
             'id_categoria.exists' => 'La categoría seleccionada no está activa.',
-        ]);
+        ] + $this->mensajes());
         if ($request->hasFile('foto')) {
             if ($producto->foto) Storage::disk('public')->delete($producto->foto);
             $data['foto'] = $request->file('foto')->store('productos', 'public');
@@ -120,7 +117,12 @@ class ProductoController extends Controller
     public function destroy(Producto $producto)
     {
         $this->authorizePermission('gestionar_productos');
-        abort_if($producto->detallesVenta()->exists(), 422, 'No se puede desactivar un producto con historial de ventas.');
+        if ($producto->detallesVenta()->exists()) {
+            $mensaje = 'No se puede desactivar un producto con historial de ventas.';
+            abort_if(request()->expectsJson(), 422, $mensaje);
+
+            return redirect()->route('productos.index')->with('error', $mensaje);
+        }
         $producto->update(['activo' => false, 'modificado_por' => auth()->id()]);
         return request()->expectsJson() ? response()->json(['message' => 'Producto desactivado.']) : redirect()->route('productos.index')->with('success', 'Producto desactivado.');
     }
@@ -130,14 +132,43 @@ class ProductoController extends Controller
         $this->authorizePermission('gestionar_productos');
         $data = $request->validate([
             'id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal'],
-            'stock_actual' => ['required', 'integer', 'min:0'],
-            'stock_minimo' => ['required', 'integer', 'min:0'],
-        ]);
+            'stock_actual' => ['required', 'integer', 'min:0', 'max:100000'],
+            'stock_minimo' => ['required', 'integer', 'min:0', 'max:100000'],
+        ], self::mensajesStock());
         $this->authorizeSucursal($data['id_sucursal']);
         DB::table('producto_sucursal')->updateOrInsert(
             ['id_producto' => $producto->getKey(), 'id_sucursal' => $data['id_sucursal']],
             ['stock_actual' => $data['stock_actual'], 'stock_minimo' => $data['stock_minimo']]
         );
         return redirect()->route('productos.index')->with('success', 'Stock actualizado.');
+    }
+
+    private function mensajes(): array
+    {
+        return [
+            'nombre.regex' => 'El nombre del producto debe contener letras y solo puede incluir números, espacios y los signos . , \' & ( ) / % + -',
+            'precio.numeric' => 'El precio debe ser un número mayor que cero.',
+            'precio.gt' => 'El precio debe ser un número mayor que cero.',
+            'precio.max' => 'El precio no puede superar 99 999,99.',
+            'id_categoria.required' => 'Selecciona una categoría.',
+            'foto.image' => 'La foto debe ser una imagen.',
+            'foto.mimes' => 'La foto debe ser JPG, PNG o WEBP.',
+            'foto.max' => 'La foto no debe pesar más de 2 MB.',
+        ];
+    }
+
+    /** Mensajes de stock compartidos con InventarioController. */
+    public static function mensajesStock(): array
+    {
+        $entero = 'La cantidad debe ser un número entero válido (0 o mayor).';
+
+        return [
+            'stock_actual.integer' => $entero,
+            'stock_actual.min' => $entero,
+            'stock_actual.max' => 'La cantidad no puede superar 100 000 unidades.',
+            'stock_minimo.integer' => $entero,
+            'stock_minimo.min' => $entero,
+            'stock_minimo.max' => 'La cantidad no puede superar 100 000 unidades.',
+        ];
     }
 }

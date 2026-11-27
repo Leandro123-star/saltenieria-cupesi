@@ -29,17 +29,13 @@ class CajaController extends Controller
             ->when($request->filled('hasta'), fn ($q) => $q->whereDate('fecha_apertura', '<=', $request->date('hasta')))
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->string('estado')->toString()));
         $allowedBranches = $this->activeSucursalIds();
-        if (! auth()->user()->esAdministrador() || $allowedBranches->isNotEmpty()) {
+        if ($this->limitarASucursalesAutorizadas()) {
             $query->whereIn('id_sucursal', $allowedBranches);
         }
         $cajas = $query->latest('fecha_apertura')->paginate(20)->withQueryString();
         return $request->expectsJson() ? response()->json($cajas) : view('cajas.index', [
             'cajas' => $cajas,
-            'sucursales' => auth()->user()->esAdministrador()
-                ? Sucursal::where('activo', true)
-                    ->when($allowedBranches->isNotEmpty(), fn ($q) => $q->whereIn('id_sucursal', $allowedBranches))
-                    ->orderBy('nombre')->get()
-                : auth()->user()->sucursales()->where('activo', true)->get(),
+            'sucursales' => auth()->user()->sucursalesAutorizadas()->orderBy('nombre')->get(),
         ]);
     }
 
@@ -75,7 +71,12 @@ class CajaController extends Controller
         $this->authorizePermission('gestionar_caja');
         $data = $request->validate([
             'id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal'],
-            'monto_inicial' => ['required', 'numeric', 'min:0'],
+            'monto_inicial' => ['required', 'numeric', 'min:0', 'max:999999.99'],
+        ], [
+            'monto_inicial.required' => 'Indica el monto inicial de la caja.',
+            'monto_inicial.numeric' => 'El monto inicial debe ser un número (0 o mayor).',
+            'monto_inicial.min' => 'El monto inicial no puede ser negativo.',
+            'monto_inicial.max' => 'El monto inicial no puede superar 999 999,99.',
         ]);
         $this->authorizeSucursal($data['id_sucursal']);
         $caja = DB::transaction(function () use ($data): Caja {
@@ -99,8 +100,19 @@ class CajaController extends Controller
         $this->authorizePermission('gestionar_caja');
         $this->authorizeSucursal($caja->id_sucursal);
         $data = $request->validate([
-            'efectivo_contado' => ['required', 'numeric', 'min:0'],
-            'qr_verificado' => ['required', 'numeric', 'min:0'],
+            'efectivo_contado' => ['required', 'numeric', 'min:0', 'max:999999.99'],
+            'qr_verificado' => ['required', 'numeric', 'min:0', 'max:999999.99'],
+        ], [
+            // Lo contado no puede ser negativo; las diferencias del arqueo
+            // (contado - esperado) sí pueden serlo y se calculan aparte.
+            'efectivo_contado.required' => 'Indica el efectivo contado.',
+            'efectivo_contado.numeric' => 'El efectivo contado debe ser un número (0 o mayor).',
+            'efectivo_contado.min' => 'El efectivo contado no puede ser negativo.',
+            'efectivo_contado.max' => 'El efectivo contado no puede superar 999 999,99.',
+            'qr_verificado.required' => 'Indica el monto QR verificado.',
+            'qr_verificado.numeric' => 'El monto QR verificado debe ser un número (0 o mayor).',
+            'qr_verificado.min' => 'El monto QR verificado no puede ser negativo.',
+            'qr_verificado.max' => 'El monto QR verificado no puede superar 999 999,99.',
         ]);
         $caja = DB::transaction(function () use ($caja, $data): Caja {
             $caja = Caja::whereKey($caja->getKey())->lockForUpdate()->firstOrFail();

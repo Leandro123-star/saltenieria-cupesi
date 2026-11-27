@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\MetodoPago;
+use App\Support\Formatos;
 use Illuminate\Http\Request;
 
 class MetodoPagoController extends Controller
@@ -30,8 +31,11 @@ class MetodoPagoController extends Controller
     {
         $this->authorizePermission('gestionar_metodos_pago');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:metodos_pago,nombre'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_COMERCIAL, 'unique:metodos_pago,nombre'],
             'activo' => ['required', 'boolean'],
+        ], [
+            'nombre.regex' => 'El nombre del método de pago debe contener letras y no puede incluir símbolos como @, #, $, < o >.',
+            'nombre.unique' => 'Ya existe un método de pago con ese nombre.',
         ]);
         $data['creado_por'] = auth()->id();
         $metodoPago = MetodoPago::create($data);
@@ -57,8 +61,11 @@ class MetodoPagoController extends Controller
     {
         $this->authorizePermission('gestionar_metodos_pago');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:metodos_pago,nombre,'.$metodoPago->getKey().',id_metodo_pago'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_COMERCIAL, 'unique:metodos_pago,nombre,'.$metodoPago->getKey().',id_metodo_pago'],
             'activo' => ['required', 'boolean'],
+        ], [
+            'nombre.regex' => 'El nombre del método de pago debe contener letras y no puede incluir símbolos como @, #, $, < o >.',
+            'nombre.unique' => 'Ya existe un método de pago con ese nombre.',
         ]);
         $data['modificado_por'] = auth()->id();
         $metodoPago->update($data);

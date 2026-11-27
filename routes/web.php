@@ -68,8 +68,6 @@ Route::middleware('auth')->group(function (): void {
      Route::get('reportes/ventas-sucursal/pdf', [ReporteController::class, 'ventasPorSucursalPdf'])->name('reportes.ventas-sucursal.pdf');
      Route::get('reportes/productos-mas-vendidos', [ReporteController::class, 'productosMasVendidos'])->name('reportes.productos-mas-vendidos');
      Route::get('reportes/productos-mas-vendidos/pdf', [ReporteController::class, 'productosMasVendidosPdf'])->name('reportes.productos-mas-vendidos.pdf');
-     Route::get('reportes/existencias', [ReporteController::class, 'existencias'])->name('reportes.existencias');
-     Route::get('reportes/existencias/pdf', [ReporteController::class, 'existenciasPdf'])->name('reportes.existencias.pdf');
      Route::get('reportes/pagos', [ReporteController::class, 'pagos'])->name('reportes.pagos');
      Route::get('reportes/pagos/pdf', [ReporteController::class, 'pagosPdf'])->name('reportes.pagos.pdf');
      Route::get('reportes/cajas', [ReporteController::class, 'cajas'])->name('reportes.cajas');

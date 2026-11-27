@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Usuario;
+use App\Support\Formatos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -39,7 +40,7 @@ class UsuarioController extends Controller
     {
         $this->authorizePermission('gestionar_usuarios');
         $data = $request->validate([
-            'nombre_usuario' => ['required', 'string', 'max:30', 'unique:usuarios,nombre_usuario'],
+            'nombre_usuario' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_USUARIO, 'unique:usuarios,nombre_usuario'],
             'password' => ['required', 'string', 'min:8', 'max:50'],
             'id_persona' => [
                 'required',
@@ -54,10 +55,17 @@ class UsuarioController extends Controller
             ],
             'activo' => ['sometimes', 'boolean'],
             'sucursales' => ['sometimes', 'array'],
-            'sucursales.*.id_sucursal' => ['integer', 'exists:sucursales,id_sucursal'],
+            'sucursales.*.id_sucursal' => ['required', 'integer', 'distinct', 'exists:sucursales,id_sucursal'],
             'sucursales.*.fecha_asignacion' => ['nullable', 'date'],
             'sucursales.*.fecha_fin' => ['nullable', 'date'],
-        ]);
+            'acceso_todas_sucursales' => ['sometimes', 'boolean'],
+        ], $this->mensajes());
+        $data['acceso_todas_sucursales'] = $this->resolverAccesoGlobal($request, (int) $data['id_rol'], $data['sucursales'] ?? []);
+        if ($data['acceso_todas_sucursales']) {
+            // El acceso global no usa filas en usuario_sucursal: se evitan
+            // asignaciones duplicadas o contradictorias.
+            $data['sucursales'] = [];
+        }
         $this->validateSucursalAssignment((int) $data['id_rol'], $data['sucursales'] ?? []);
 
         $usuario = DB::transaction(function () use ($data): Usuario {
@@ -105,7 +113,7 @@ class UsuarioController extends Controller
     {
         $this->authorizePermission('gestionar_usuarios');
         $data = $request->validate([
-            'nombre_usuario' => ['required', 'string', 'max:30', 'unique:usuarios,nombre_usuario,'.$usuario->getKey().',id_usuario'],
+            'nombre_usuario' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_USUARIO, 'unique:usuarios,nombre_usuario,'.$usuario->getKey().',id_usuario'],
             'id_persona' => [
                 'required',
                 'integer',
@@ -119,21 +127,27 @@ class UsuarioController extends Controller
             ],
             'activo' => ['sometimes', 'boolean'],
             'sucursales' => ['sometimes', 'array'],
-            'sucursales.*.id_sucursal' => ['integer', 'exists:sucursales,id_sucursal'],
+            'sucursales.*.id_sucursal' => ['required', 'integer', 'distinct', 'exists:sucursales,id_sucursal'],
             // Cambio de contraseña opcional: si ambos campos llegan vacíos se
             // conserva la contraseña actual.
             'password' => ['nullable', 'required_with:password_confirmation', 'string', 'min:8', 'max:50', 'confirmed'],
             'password_confirmation' => ['nullable', 'string', 'max:50'],
+            'acceso_todas_sucursales' => ['sometimes', 'boolean'],
         ], [
             'password.required_with' => 'Ingresa la nueva contraseña para poder confirmarla.',
             'password.confirmed' => 'La confirmación no coincide con la nueva contraseña.',
             'password.min' => 'La nueva contraseña debe tener al menos 8 caracteres.',
             'password.max' => 'La nueva contraseña no puede superar los 50 caracteres.',
-        ]);
+        ] + $this->mensajes());
         $password = $data['password'] ?? null;
         unset($data['password'], $data['password_confirmation']);
         $sucursales = $data['sucursales'] ?? null;
         $assignmentsForValidation = $sucursales ?? $usuario->sucursales()->get()->map(fn ($sucursal) => ['id_sucursal' => $sucursal->getKey()])->all();
+        $data['acceso_todas_sucursales'] = $this->resolverAccesoGlobal($request, (int) $data['id_rol'], $assignmentsForValidation, $usuario);
+        if ($data['acceso_todas_sucursales']) {
+            $sucursales = [];
+            $assignmentsForValidation = [];
+        }
         $this->validateSucursalAssignment((int) $data['id_rol'], $assignmentsForValidation);
         unset($data['sucursales']);
         DB::transaction(function () use ($data, $sucursales, $usuario, $password): void {
@@ -148,6 +162,61 @@ class UsuarioController extends Controller
         });
 
         return $request->expectsJson() ? response()->json($usuario->fresh(['rol', 'persona', 'sucursales'])) : redirect()->route('usuarios.index')->with('success', 'Usuario actualizado.');
+    }
+
+    private function mensajes(): array
+    {
+        return [
+            'nombre_usuario.regex' => 'El nombre de usuario debe tener de 3 a 30 caracteres, sin espacios: solo letras sin tilde, números, punto, guion o guion bajo.',
+            'nombre_usuario.unique' => 'El nombre de usuario ya está registrado.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.max' => 'La contraseña no puede superar los 50 caracteres.',
+            'id_persona.required' => 'Selecciona la persona asociada.',
+            'id_persona.unique' => 'La persona seleccionada ya tiene un usuario.',
+            'id_persona.exists' => 'Selecciona una persona registrada y activa.',
+            'id_rol.required' => 'Selecciona un rol.',
+            'id_rol.exists' => 'Selecciona un rol existente y activo.',
+            'sucursales.*.id_sucursal.distinct' => 'No se puede asignar la misma sucursal más de una vez.',
+            'sucursales.*.id_sucursal.exists' => 'Selecciona sucursales registradas.',
+        ];
+    }
+
+    /**
+     * Decide si el usuario tendrá acceso a todas las sucursales.
+     *
+     * - Solo el rol Administrador puede tenerlo; para otros roles es false.
+     * - El formulario siempre envía el campo. Si una integración no lo envía,
+     *   al crear se mantiene la regla anterior (Administrador sin sucursales =
+     *   todas) y al editar se conserva el valor guardado.
+     * - Un Administrador sin acceso global debe tener al menos una sucursal.
+     */
+    private function resolverAccesoGlobal(Request $request, int $rolId, array $sucursales, ?Usuario $usuario = null): bool
+    {
+        $esAdministrador = Rol::whereKey($rolId)->where('nombre', 'Administrador')->exists();
+        $enviado = $request->has('acceso_todas_sucursales');
+        $solicitado = $request->boolean('acceso_todas_sucursales');
+
+        if (! $esAdministrador) {
+            if ($enviado && $solicitado) {
+                throw ValidationException::withMessages([
+                    'acceso_todas_sucursales' => 'Solo el rol Administrador puede tener acceso a todas las sucursales.',
+                ]);
+            }
+
+            return false;
+        }
+
+        $global = $enviado
+            ? $solicitado
+            : ($usuario ? (bool) $usuario->acceso_todas_sucursales : $sucursales === []);
+
+        if (! $global && $sucursales === []) {
+            throw ValidationException::withMessages([
+                'sucursales' => 'Selecciona al menos una sucursal o marca «Acceso a todas las sucursales».',
+            ]);
+        }
+
+        return $global;
     }
 
     private function validateSucursalAssignment(int $roleId, array $sucursales): void

@@ -57,8 +57,8 @@
         @csrf @method('PATCH')
         <div class="f"><label>Producto</label><select name="producto_id" onchange="document.getElementById('stock-form').action='/productos/'+this.value+'/stock'" required><option value="">Seleccionar</option>@foreach($productos as $producto)<option value="{{ $producto->id_producto }}">{{ $producto->nombre }}</option>@endforeach</select></div>
         <div class="f"><label>Sucursal</label><select name="id_sucursal" required>@foreach($sucursales as $sucursal)<option value="{{ $sucursal->id_sucursal }}">{{ $sucursal->nombre }}</option>@endforeach</select></div>
-        <div class="f"><label>Existencia actual</label><input name="stock_actual" type="number" min="0" required></div>
-        <div class="f"><label>Stock mínimo</label><input name="stock_minimo" type="number" min="0" value="0" required></div>
+        <div class="f"><label>Existencia actual</label><input name="stock_actual" type="number" min="0" max="100000" step="1" inputmode="numeric" value="{{ old('stock_actual') }}" required title="Número entero, 0 o mayor" @class(['is-invalid' => $errors->has('stock_actual')])></div>
+        <div class="f"><label>Stock mínimo</label><input name="stock_minimo" type="number" min="0" max="100000" step="1" inputmode="numeric" value="{{ old('stock_minimo', 0) }}" required title="Número entero, 0 o mayor" @class(['is-invalid' => $errors->has('stock_minimo')])></div>
         <div class="actions"><button class="btn" type="submit">Actualizar stock</button></div>
     </form>
 </div>

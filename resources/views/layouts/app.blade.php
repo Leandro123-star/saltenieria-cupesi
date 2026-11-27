@@ -57,6 +57,11 @@
         dialog.modal::backdrop{background:#0007}
         dialog.modal h2{margin:0 0 14px}
         dialog.modal input[readonly]{background:#fbf4ee;color:var(--muted)}
+        input:focus,select:focus,textarea:focus{outline:3px solid #cc4a0526;border-color:#cc4a05}
+        .is-invalid,input.is-invalid,select.is-invalid,textarea.is-invalid{border-color:#b42318;background:#fffaf9}
+        .is-invalid:focus{outline-color:#b4231826;border-color:#b42318}
+        .field-error{display:block;margin-top:4px;color:#b42318;font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+        .error .errors-title{margin:0;font-weight:600}
         .modal-actions{justify-content:flex-end;margin-top:6px}
         @media(max-width:900px){
             .app{display:block;min-height:100dvh}
@@ -135,13 +140,12 @@
                     <a href="{{ route('reportes.ventas-periodo') }}" class="{{ request()->routeIs('reportes.ventas-periodo') ? 'on' : '' }}">Ventas por período</a>
                     <a href="{{ route('reportes.ventas-sucursal') }}" class="{{ request()->routeIs('reportes.ventas-sucursal') ? 'on' : '' }}">Ventas por sucursal</a>
                     <a href="{{ route('reportes.productos-mas-vendidos') }}" class="{{ request()->routeIs('reportes.productos-mas-vendidos') ? 'on' : '' }}">Productos más vendidos</a>
-                    <a href="{{ route('reportes.existencias') }}" class="{{ request()->routeIs('reportes.existencias') ? 'on' : '' }}">Existencias por sucursal</a>
                     <a href="{{ route('reportes.pagos') }}" class="{{ request()->routeIs('reportes.pagos') ? 'on' : '' }}">Totales por método de pago</a>
                     <a href="{{ route('reportes.cajas') }}" class="{{ request()->routeIs('reportes.cajas') ? 'on' : '' }}">Historial de caja</a>
                 </details>
             @endif
         </div>
-        <div class="sidebar-foot">{{ auth()->user()->persona?->nombres ?? auth()->user()->nombre_usuario }}<br>{{ auth()->user()->rol?->nombre }}<br>{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</div>
+        <div class="sidebar-foot">{{ auth()->user()->persona?->nombres ?? auth()->user()->nombre_usuario }}<br>{{ auth()->user()->rol?->nombre }}<br>{{ auth()->user()->sucursalActiva()?->nombre }}</div>
     </nav>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <main>
@@ -157,15 +161,17 @@
                 @endif
             </h1>
             @if(session('sucursal_activa_id'))
-                <span class="chip">{{ auth()->user()->sucursales->firstWhere('id_sucursal', session('sucursal_activa_id'))?->nombre }}</span>
+                <span class="chip">{{ auth()->user()->sucursalActiva()?->nombre }}</span>
                 @if(!$cajero)<a class="btn out small" href="{{ route('branch.choose') }}">Cambiar sucursal</a>@endif
+            @elseif(!$cajero && auth()->user()->sucursalesAutorizadas()->exists())
+                <a class="btn out small" href="{{ route('branch.choose') }}">Elegir sucursal</a>
             @endif
             <form method="POST" action="{{ route('logout') }}">@csrf<button class="btn out small">Cerrar sesión</button></form>
         </header>
         <div class="content">
             @if(session('success'))<div class="success">{{ session('success') }}</div>@endif
             @if(session('error'))<div class="error">{{ session('error') }}</div>@endif
-            @if($errors->any())<div class="error"><ul class="errors">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+            @if($errors->any())<div class="error" role="alert">@hasSection('errores_en_campos')<p class="errors-title">Revisa los campos marcados en el formulario.</p>@else<ul class="errors">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif</div>@endif
             @yield('content')
         </div>
     </main>

@@ -354,7 +354,11 @@ class VentaService
             ]);
         }
 
-        if (! $usuario->esAdministrador()) {
+        if ($usuario->esAdministrador()) {
+            if (! $usuario->puedeUsarSucursal($venta->id_sucursal, soloActivas: false)) {
+                throw ValidationException::withMessages(['venta' => 'El usuario no está autorizado para esta sucursal.']);
+            }
+        } else {
             if ((int) $venta->id_usuario !== (int) $usuario->getKey()) {
                 throw ValidationException::withMessages(['venta' => 'Solo puede corregir sus propias ventas.']);
             }
@@ -433,16 +437,16 @@ class VentaService
 
     private function authorizeSucursal(int $idSucursal, int $usuarioId): void
     {
-        $isAdmin = DB::table('usuarios as u')
-            ->join('roles as r', 'r.id_rol', '=', 'u.id_rol')
-            ->where('u.id_usuario', $usuarioId)
-            ->where('r.nombre', 'Administrador')
-            ->exists();
-        $assigned = DB::table('usuario_sucursal')
-            ->where('id_usuario', $usuarioId)
-            ->where('id_sucursal', $idSucursal)
-            ->exists();
-        if (! $isAdmin && ! $assigned) {
+        $usuario = Usuario::with('rol')->find($usuarioId);
+        // Administrador: acceso global explícito o sucursal asignada y vigente.
+        // Resto de roles: sucursal asignada (el middleware ya exige que esté activa).
+        $autorizado = $usuario && ($usuario->esAdministrador()
+            ? $usuario->puedeUsarSucursal($idSucursal, soloActivas: false)
+            : DB::table('usuario_sucursal')
+                ->where('id_usuario', $usuarioId)
+                ->where('id_sucursal', $idSucursal)
+                ->exists());
+        if (! $autorizado) {
             throw ValidationException::withMessages(['id_sucursal' => 'El usuario no está autorizado para esta sucursal.']);
         }
     }

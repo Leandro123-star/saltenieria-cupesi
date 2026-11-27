@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Caja;
-use App\Models\Categoria;
 use App\Models\MetodoPago;
 use App\Models\Sucursal;
 use App\Support\CajaCalculadora;
@@ -55,17 +54,6 @@ class ReporteController extends Controller
         return $this->pdf($this->productosData($request), 'Productos más vendidos', 'productos-mas-vendidos');
     }
 
-    public function existencias(Request $request)
-    {
-        $data = $this->existenciasData($request);
-        return $request->expectsJson() ? response()->json($data['json']) : view('reportes.existencias', $data);
-    }
-
-    public function existenciasPdf(Request $request)
-    {
-        return $this->pdf($this->existenciasData($request), 'Existencias por sucursal', 'existencias-por-sucursal');
-    }
-
     public function pagos(Request $request)
     {
         $data = $this->pagosData($request);
@@ -113,10 +101,8 @@ class ReporteController extends Controller
             $this->authorizeSucursal($selected);
         }
 
-        $allowed = $this->activeSucursalIds();
-        $admin = auth()->user()->esAdministrador();
-        if (! $admin || $allowed->isNotEmpty()) {
-            $query->whereIn($column, $allowed);
+        if ($this->limitarASucursalesAutorizadas()) {
+            $query->whereIn($column, $this->activeSucursalIds());
         }
 
         return $query;
@@ -124,12 +110,7 @@ class ReporteController extends Controller
 
     private function reportBranches()
     {
-        $allowed = $this->activeSucursalIds();
-        $admin = auth()->user()->esAdministrador();
-
-        return Sucursal::query()->where('activo', true)
-            ->when(! $admin || $allowed->isNotEmpty(), fn ($q) => $q->whereIn('id_sucursal', $allowed))
-            ->orderBy('nombre')->get();
+        return auth()->user()->sucursalesAutorizadas()->orderBy('nombre')->get();
     }
 
     private function ventasPeriodoData(Request $request): array
@@ -194,28 +175,6 @@ class ReporteController extends Controller
         return $this->payload('Productos más vendidos', 'Ranking de productos según las unidades vendidas.', $filters, $rows, ['unidades' => (int) $rows->sum('cantidad'), 'diferentes' => $rows->count()], $rows->map(fn ($r) => (object) ['id_producto' => $r->id_producto, 'nombre' => $r->nombre, 'cantidad' => $r->cantidad]), $this->reportBranches(), [
             ['label' => '#', 'key' => 'posicion'], ['label' => 'Producto', 'key' => 'nombre'], ['label' => 'Categoría', 'key' => 'categoria'], ['label' => 'Cantidad', 'key' => 'cantidad'], ['label' => 'Total generado', 'key' => 'total'],
         ]);
-    }
-
-    private function existenciasData(Request $request): array
-    {
-        $this->authorizePermission('consultar_inventario');
-        $filters = $request->validate(['id_sucursal' => ['nullable', 'integer'], 'id_categoria' => ['nullable', 'integer'], 'estado_stock' => ['nullable', 'in:AGOTADO,BAJO,NORMAL']]);
-        $idSucursal = ! empty($filters['id_sucursal']) ? (int) $filters['id_sucursal'] : null;
-        $query = DB::table('producto_sucursal as ps')->join('productos as p', 'p.id_producto', '=', 'ps.id_producto')
-            ->leftJoin('categorias as c', 'c.id_categoria', '=', 'p.id_categoria')->join('sucursales as s', 's.id_sucursal', '=', 'ps.id_sucursal')
-            ->select('p.id_producto', 'p.nombre as producto', 'c.nombre as categoria', 's.nombre as sucursal', 'ps.stock_actual', 'ps.stock_minimo')
-            ->selectRaw("CASE WHEN ps.stock_actual = 0 THEN 'AGOTADO' WHEN ps.stock_actual <= ps.stock_minimo THEN 'BAJO' ELSE 'NORMAL' END as estado_stock")
-            ->when($filters['id_categoria'] ?? null, fn ($q, $id) => $q->where('p.id_categoria', $id));
-        $this->scopeBranches($query, 'ps.id_sucursal', $idSucursal);
-        $query->when($idSucursal, fn ($q) => $q->where('ps.id_sucursal', $idSucursal));
-        if (! empty($filters['estado_stock'])) {
-            $query->whereRaw("CASE WHEN ps.stock_actual = 0 THEN 'AGOTADO' WHEN ps.stock_actual <= ps.stock_minimo THEN 'BAJO' ELSE 'NORMAL' END = ?", [$filters['estado_stock']]);
-        }
-        $rows = $query->orderBy('s.nombre')->orderBy('p.nombre')->get();
-
-        return $this->payload('Existencias por sucursal', 'Consulta del stock de productos terminados por sucursal.', $filters, $rows, ['productos' => $rows->count(), 'agotados' => $rows->where('estado_stock', 'AGOTADO')->count(), 'bajos' => $rows->where('estado_stock', 'BAJO')->count()], $rows, $this->reportBranches(), [
-            ['label' => 'Producto', 'key' => 'producto'], ['label' => 'Categoría', 'key' => 'categoria'], ['label' => 'Sucursal', 'key' => 'sucursal'], ['label' => 'Stock actual', 'key' => 'stock_actual'], ['label' => 'Stock mínimo', 'key' => 'stock_minimo'], ['label' => 'Estado', 'key' => 'estado_stock'],
-        ], Categoria::where('activo', true)->orderBy('nombre')->get());
     }
 
     private function pagosData(Request $request): array

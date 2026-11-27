@@ -7,16 +7,35 @@ use Tests\TestCase;
 
 class ReportesTest extends TestCase
 {
-    public function test_las_seis_interfaces_de_reportes_cargan_sin_registros(): void
+    public function test_las_cinco_interfaces_de_reportes_cargan_sin_registros(): void
     {
         $sucursal = $this->createSucursal('Sucursal de reportes');
         $usuario = $this->createUsuario(['generar_reportes', 'consultar_inventario'], [$sucursal]);
         $this->actingAs($usuario)->withSession(['sucursal_activa_id' => $sucursal->getKey()]);
 
-        foreach (['ventas-periodo', 'ventas-sucursal', 'productos-mas-vendidos', 'existencias', 'pagos', 'cajas'] as $reporte) {
+        foreach (['ventas-periodo', 'ventas-sucursal', 'productos-mas-vendidos', 'pagos', 'cajas'] as $reporte) {
             $this->get('/reportes/'.$reporte)->assertOk()->assertSee('No');
             $this->get('/reportes/'.$reporte.'/pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
         }
+    }
+
+    public function test_menu_muestra_solo_cinco_reportes_y_existencias_ya_no_existe(): void
+    {
+        $sucursal = $this->createSucursal('Sucursal de reportes');
+        $usuario = $this->createUsuario(['generar_reportes', 'consultar_inventario'], [$sucursal]);
+        $this->actingAs($usuario)->withSession(['sucursal_activa_id' => $sucursal->getKey()]);
+
+        $html = $this->get('/reportes/ventas-periodo')->assertOk()->getContent();
+        preg_match('#<details class="reports-menu".*?</details>#s', $html, $menu);
+        $this->assertNotEmpty($menu);
+        preg_match_all('#<a href="[^"]*"[^>]*>([^<]+)</a>#', $menu[0], $enlaces);
+        $this->assertSame([
+            'Ventas por período', 'Ventas por sucursal', 'Productos más vendidos', 'Totales por método de pago', 'Historial de caja',
+        ], array_map('trim', $enlaces[1]));
+        $this->assertStringNotContainsString('Existencias por sucursal', $html);
+
+        $this->get('/reportes/existencias')->assertNotFound();
+        $this->get('/reportes/existencias/pdf')->assertNotFound();
     }
 
     public function test_pagos_mixtos_se_suman_desde_venta_pago(): void

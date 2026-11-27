@@ -20,7 +20,7 @@ class DashboardController extends Controller
         $fecha = $request->date('fecha') ?? now();
         $query = DB::table('ventas as v')->whereDate('v.fecha_venta', $fecha);
         $allowedBranches = $this->activeSucursalIds();
-        if (! auth()->user()->esAdministrador() || $allowedBranches->isNotEmpty()) {
+        if ($this->limitarASucursalesAutorizadas()) {
             $query->whereIn('v.id_sucursal', $allowedBranches);
         }
         $summary = (clone $query)->selectRaw('COUNT(*) cantidad_ventas, COALESCE(SUM(total), 0) ingresos')->first();
@@ -40,8 +40,7 @@ class DashboardController extends Controller
             ->orderBy('p.nombre')
             ->get();
         if ($request->expectsJson()) return response()->json(['resumen' => $summary, 'ventas_por_sucursal' => $byBranch, 'stock_bajo' => $lowStock]);
-        $sucursales = auth()->user()->esAdministrador()
-            ? Sucursal::where('activo', true)->get() : auth()->user()->sucursales()->where('activo', true)->get();
+        $sucursales = auth()->user()->sucursalesAutorizadas()->orderBy('nombre')->get();
         $products = Producto::with('categoria')->where('activo', true)->whereHas('sucursales', function ($q) use ($activeBranch) {
             $q->where('sucursales.id_sucursal', $activeBranch);
         })->get();

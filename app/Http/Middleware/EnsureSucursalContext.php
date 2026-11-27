@@ -12,7 +12,25 @@ class EnsureSucursalContext
     {
         $usuario = $request->user();
 
-        if (! $usuario || $usuario->esAdministrador()) {
+        if (! $usuario) {
+            return $next($request);
+        }
+
+        if ($usuario->esAdministrador()) {
+            // El Administrador elige sucursal, pero la de la sesión debe seguir
+            // autorizada: si se le quitó o se desactivó, se descarta.
+            $activa = $request->session()->get('sucursal_activa_id');
+            if ($activa && ! $usuario->puedeUsarSucursal((int) $activa)) {
+                $request->session()->forget('sucursal_activa_id');
+                $activa = null;
+            }
+            if (! $activa) {
+                $autorizadas = $usuario->sucursalesAutorizadas()->limit(2)->pluck('sucursales.id_sucursal');
+                if ($autorizadas->count() === 1) {
+                    $request->session()->put('sucursal_activa_id', $autorizadas->first());
+                }
+            }
+
             return $next($request);
         }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Categoria;
+use App\Support\Formatos;
 use Illuminate\Http\Request;
 
 class CategoriaController extends Controller
@@ -28,9 +29,12 @@ class CategoriaController extends Controller
     {
         $this->authorizePermission('gestionar_categorias');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:categorias,nombre'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_COMERCIAL, 'unique:categorias,nombre'],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'activo' => ['required', 'boolean'],
+        ], [
+            'nombre.regex' => 'El nombre de la categoría debe contener letras y no puede incluir símbolos como @, #, $, < o >.',
+            'nombre.unique' => 'Ya existe una categoría con ese nombre.',
         ]);
         $data['creado_por'] = auth()->id();
         $categoria = Categoria::create($data);
@@ -52,9 +56,12 @@ class CategoriaController extends Controller
     {
         $this->authorizePermission('gestionar_categorias');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:categorias,nombre,'.$categoria->getKey().',id_categoria'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_COMERCIAL, 'unique:categorias,nombre,'.$categoria->getKey().',id_categoria'],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'activo' => ['required', 'boolean'],
+        ], [
+            'nombre.regex' => 'El nombre de la categoría debe contener letras y no puede incluir símbolos como @, #, $, < o >.',
+            'nombre.unique' => 'Ya existe una categoría con ese nombre.',
         ]);
         $data['modificado_por'] = auth()->id();
         $categoria->update($data);

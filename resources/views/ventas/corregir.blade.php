@@ -198,7 +198,7 @@ function renderPayments(){
     const options=methods.map(m=>`<option value="${m.id}" ${Number(m.id)===Number(payment.id_metodo_pago)?'selected':''}>${esc(m.name)}</option>`).join('');
     return `<tr>
       <td><select name="pagos[${index}][id_metodo_pago]" onchange="changeMethod(${index},this.value)">${options}</select></td>
-      <td><input type="hidden" name="pagos[${index}][verificado]" value="${payment.verificado?'1':'0'}"><input type="number" name="pagos[${index}][importe]" step="0.01" min="0.01" required value="${money(payment.importe)}" style="width:130px" oninput="changeAmount(${index},this.value)"></td>
+      <td><input type="hidden" name="pagos[${index}][verificado]" value="${payment.verificado?'1':'0'}"><input type="number" name="pagos[${index}][importe]" step="0.01" min="0.01" max="999999.99" inputmode="decimal" title="Importe mayor que cero" required value="${money(payment.importe)}" style="width:130px" oninput="changeAmount(${index},this.value)"></td>
       <td>${payments.length>1?`<button type="button" class="btn out small" onclick="removePayment(${index})" aria-label="Quitar pago">×</button>`:''}</td>
     </tr>`;
   }).join('');

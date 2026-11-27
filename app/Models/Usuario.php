@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Notifications\Notifiable;
 
 class Usuario extends Authenticatable
@@ -23,6 +25,7 @@ class Usuario extends Authenticatable
         'activo',
         'id_persona',
         'id_rol',
+        'acceso_todas_sucursales',
         'creado_por',
         'modificado_por',
     ];
@@ -34,6 +37,7 @@ class Usuario extends Authenticatable
     protected $casts = [
         'password_hash' => 'hashed',
         'activo' => 'boolean',
+        'acceso_todas_sucursales' => 'boolean',
         'creado_el' => 'datetime',
         'modificado_el' => 'datetime',
     ];
@@ -68,6 +72,55 @@ class Usuario extends Authenticatable
     {
         return $this->belongsToMany(Sucursal::class, 'usuario_sucursal', 'id_usuario', 'id_sucursal')
             ->withPivot(['fecha_asignacion', 'fecha_fin']);
+    }
+
+    /**
+     * Acceso a todas las sucursales activas, incluidas las que se creen
+     * después. Solo aplica al rol Administrador: para cualquier otro rol la
+     * marca se ignora.
+     */
+    public function tieneAccesoGlobal(): bool
+    {
+        return $this->esAdministrador() && (bool) $this->acceso_todas_sucursales;
+    }
+
+    /** Sucursales activas que el usuario puede usar. */
+    public function sucursalesAutorizadas(): Builder
+    {
+        $query = Sucursal::query()->where('sucursales.activo', true);
+
+        if ($this->tieneAccesoGlobal()) {
+            return $query;
+        }
+
+        return $query->whereIn('sucursales.id_sucursal', DB::table('usuario_sucursal')
+            ->select('id_sucursal')
+            ->where('id_usuario', $this->getKey())
+            ->where(function ($q): void {
+                $q->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', today());
+            }));
+    }
+
+    /**
+     * Indica si el usuario puede operar en la sucursal. Con $soloActivas en
+     * false, el acceso global también permite consultar el historial de
+     * sucursales desactivadas.
+     */
+    public function puedeUsarSucursal(int $idSucursal, bool $soloActivas = true): bool
+    {
+        if (! $soloActivas && $this->tieneAccesoGlobal()) {
+            return Sucursal::whereKey($idSucursal)->exists();
+        }
+
+        return $this->sucursalesAutorizadas()->whereKey($idSucursal)->exists();
+    }
+
+    /** Sucursal activa de la sesión, solo si el usuario sigue autorizado. */
+    public function sucursalActiva(): ?Sucursal
+    {
+        $id = session('sucursal_activa_id');
+
+        return $id ? $this->sucursalesAutorizadas()->whereKey($id)->first() : null;
     }
 
     public function ventas()

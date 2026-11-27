@@ -38,33 +38,22 @@ trait AuthorizesSistema
 
     protected function canUseSucursal(int $idSucursal): bool
     {
-        $usuario = Auth::user();
-
-        // Mantiene compatibilidad con instalaciones antiguas donde el
-        // Administrador aún no tenía filas en usuario_sucursal. En cuanto
-        // tenga autorizaciones explícitas, solo puede usar esas sucursales.
-        if ($usuario->esAdministrador()
-            && ! $usuario->sucursales()->exists()) {
-            return true;
-        }
-
-        return $usuario->sucursales()
-            ->whereKey($idSucursal)
-            ->where('sucursales.activo', true)
-            ->where(function ($query): void {
-                $query->whereNull('usuario_sucursal.fecha_fin')
-                    ->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
-            })->exists();
+        // El acceso global es explícito (usuarios.acceso_todas_sucursales).
+        // Un Administrador sin sucursales y sin esa marca no tiene acceso.
+        // Con acceso global también se consulta el historial de sucursales
+        // desactivadas; el acceso específico exige sucursal activa y vigente.
+        return Auth::user()->puedeUsarSucursal($idSucursal, soloActivas: false);
     }
 
     protected function activeSucursalIds()
     {
-        return Auth::user()->sucursales()
-            ->where('sucursales.activo', true)
-            ->where(function ($query): void {
-                $query->whereNull('usuario_sucursal.fecha_fin')
-                    ->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
-            })->pluck('sucursales.id_sucursal');
+        return Auth::user()->sucursalesAutorizadas()->pluck('sucursales.id_sucursal');
+    }
+
+    /** true si los listados deben limitarse a activeSucursalIds(). */
+    protected function limitarASucursalesAutorizadas(): bool
+    {
+        return ! Auth::user()->tieneAccesoGlobal();
     }
 
     protected function authorizeSucursal(int $idSucursal): void

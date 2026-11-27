@@ -22,8 +22,8 @@ class InventarioController extends Controller
             ->join('sucursales as s', 's.id_sucursal', '=', 'ps.id_sucursal')
             ->select('ps.*', 'p.nombre as producto', 'p.precio', 's.nombre as sucursal')
             ->when($idSucursal, fn ($q) => $q->where('ps.id_sucursal', $idSucursal))
-            ->when(! auth()->user()->esAdministrador(), function ($q) {
-                $q->whereIn('ps.id_sucursal', auth()->user()->sucursales()->pluck('sucursales.id_sucursal'));
+            ->when($this->limitarASucursalesAutorizadas(), function ($q) {
+                $q->whereIn('ps.id_sucursal', $this->activeSucursalIds());
             })
             ->orderBy('p.nombre')->paginate(20);
 
@@ -62,8 +62,8 @@ class InventarioController extends Controller
         $this->authorizePermission('gestionar_productos');
         $data = $request->validate([
             'id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal'],
-            'stock_minimo' => ['required', 'integer', 'min:0'],
-        ]);
+            'stock_minimo' => ['required', 'integer', 'min:0', 'max:100000'],
+        ], ProductoController::mensajesStock());
         $this->authorizeSucursal($data['id_sucursal']);
         DB::table('producto_sucursal')
             ->where('id_producto', $producto->getKey())

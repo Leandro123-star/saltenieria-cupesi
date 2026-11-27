@@ -54,7 +54,7 @@ abstract class TestCase extends BaseTestCase
         return MetodoPago::create(['nombre' => $nombre, 'activo' => true]);
     }
 
-    protected function createUsuario(array $permissions = [], array $sucursales = [], string $roleName = 'Cajero/Vendedor'): Usuario
+    protected function createUsuario(array $permissions = [], array $sucursales = [], string $roleName = 'Cajero/Vendedor', bool $accesoGlobal = false): Usuario
     {
         $role = Rol::firstOrCreate(
             ['nombre' => $roleName],
@@ -81,6 +81,8 @@ abstract class TestCase extends BaseTestCase
             'activo' => true,
             'id_persona' => $persona->getKey(),
             'id_rol' => $role->getKey(),
+            // El acceso global es explícito: false salvo que la prueba lo pida.
+            'acceso_todas_sucursales' => $accesoGlobal,
         ]);
         if ($sucursales !== []) {
             $usuario->sucursales()->attach(collect($sucursales)->mapWithKeys(fn (Sucursal $sucursal) => [

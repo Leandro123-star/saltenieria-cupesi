@@ -34,7 +34,7 @@ class VentaController extends Controller
             });
 
         $allowedBranches = $this->activeSucursalIds();
-        if (! auth()->user()->esAdministrador() || $allowedBranches->isNotEmpty()) {
+        if ($this->limitarASucursalesAutorizadas()) {
             $query->whereIn('id_sucursal', $allowedBranches);
         }
 
@@ -72,11 +72,28 @@ class VentaController extends Controller
             'id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.id_producto' => ['required', 'integer', 'distinct', 'exists:productos,id_producto'],
-            'detalles.*.cantidad' => ['required', 'integer', 'min:1'],
+            'detalles.*.cantidad' => ['required', 'integer', 'min:1', 'max:1000'],
             'pagos' => ['required', 'array', 'min:1'],
             'pagos.*.id_metodo_pago' => ['required', 'integer', 'exists:metodos_pago,id_metodo_pago'],
-            'pagos.*.importe' => ['required', 'numeric', 'gt:0'],
+            'pagos.*.importe' => ['required', 'numeric', 'gt:0', 'max:999999.99'],
             'pagos.*.verificado' => ['sometimes', 'boolean'],
+        ], [
+            'detalles.required' => 'Agrega al menos un producto a la venta.',
+            'detalles.min' => 'Agrega al menos un producto a la venta.',
+            'detalles.*.id_producto.distinct' => 'Un mismo producto no puede repetirse en la venta.',
+            'detalles.*.id_producto.exists' => 'El producto seleccionado no existe.',
+            'detalles.*.cantidad.required' => 'Indica la cantidad de cada producto.',
+            'detalles.*.cantidad.integer' => 'La cantidad debe ser un número entero válido.',
+            'detalles.*.cantidad.min' => 'La cantidad debe ser un número entero mayor que cero.',
+            'detalles.*.cantidad.max' => 'La cantidad no puede superar 1000 unidades por producto.',
+            'pagos.required' => 'Registra al menos un pago.',
+            'pagos.min' => 'Registra al menos un pago.',
+            'pagos.*.id_metodo_pago.required' => 'Selecciona el método de cada pago.',
+            'pagos.*.id_metodo_pago.exists' => 'El método de pago seleccionado no existe.',
+            'pagos.*.importe.required' => 'Indica el importe de cada pago.',
+            'pagos.*.importe.numeric' => 'El importe debe ser un número mayor que cero.',
+            'pagos.*.importe.gt' => 'El importe debe ser un número mayor que cero.',
+            'pagos.*.importe.max' => 'El importe no puede superar 999 999,99.',
         ]);
         $this->authorizeSucursal($data['id_sucursal']);
         $venta = $this->ventaService->registrar($data, auth()->id());
@@ -177,9 +194,10 @@ class VentaController extends Controller
             // el usuario ajusta los importes; si no llegan, se conservan los de la BD.
             'pagos' => ['sometimes', 'array', 'min:1'],
             'pagos.*.id_metodo_pago' => ['required', 'integer', 'exists:metodos_pago,id_metodo_pago'],
-            'pagos.*.importe' => ['required', 'numeric', 'gt:0'],
+            'pagos.*.importe' => ['required', 'numeric', 'gt:0', 'max:999999.99'],
             'pagos.*.verificado' => ['sometimes', 'boolean'],
         ], [
+            'pagos.*.importe.max' => 'El importe no puede superar 999 999,99.',
             'detalles.required' => 'La venta debe conservar todos sus productos.',
             'detalles.*.id_producto.required' => 'Seleccione el producto de cada línea.',
             'detalles.*.id_producto.exists' => 'El producto seleccionado no existe.',

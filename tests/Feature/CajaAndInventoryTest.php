@@ -176,7 +176,7 @@ class CajaAndInventoryTest extends TestCase
     {
         $primera = $this->createSucursal();
         $segunda = $this->createSucursal();
-        $admin = $this->createUsuario([], [], 'Administrador');
+        $admin = $this->createUsuario([], [], 'Administrador', accesoGlobal: true);
         $categoria = $this->createCategoria();
 
         $response = $this->actingAs($admin)->postJson('/productos', [

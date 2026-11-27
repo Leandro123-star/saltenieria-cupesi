@@ -9,11 +9,11 @@
                 <a href="{{ $paginator->previousPageUrl() }}" rel="prev">‹ Anterior</a>
             @endif
 
-            @if ($paginator->hasMorePages())
-                <a href="{{ $paginator->nextPageUrl() }}" rel="next">Siguiente ›</a>
-            @else
-                <span class="off" aria-disabled="true">Siguiente ›</span>
-            @endif
+@if ($paginator->hasMorePages())
+<a href="{{ $paginator->nextPageUrl() }}" rel="next">Siguiente ›</a>
+@else
+<span class="off" aria-disabled="true">Siguiente ›</span>
+@endif
         </div>
     </nav>
 @endif

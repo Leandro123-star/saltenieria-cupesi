@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesSistema;
 use App\Models\Permiso;
 use App\Models\Rol;
+use App\Support\Formatos;
 use Illuminate\Http\Request;
 
 class RolController extends Controller
@@ -28,11 +29,15 @@ class RolController extends Controller
     {
         $this->authorizePermission('gestionar_roles');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:roles,nombre'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_ROL, 'unique:roles,nombre'],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'activo' => ['sometimes', 'boolean'],
             'permisos' => ['sometimes', 'array'],
-            'permisos.*' => ['integer', 'exists:permisos,id_permiso'],
+            'permisos.*' => ['integer', 'distinct', 'exists:permisos,id_permiso'],
+        ], [
+            'nombre.regex' => 'El nombre del rol debe empezar con una letra y solo puede contener letras, números, espacios y los signos / . -',
+            'nombre.unique' => 'Ya existe un rol con ese nombre.',
+            'permisos.*.exists' => 'Selecciona permisos registrados.',
         ]);
         $permisos = $data['permisos'] ?? [];
         unset($data['permisos']);
@@ -57,11 +62,15 @@ class RolController extends Controller
     {
         $this->authorizePermission('gestionar_roles');
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:30', 'unique:roles,nombre,'.$rol->getKey().',id_rol'],
+            'nombre' => ['required', 'string', 'max:30', 'regex:'.Formatos::NOMBRE_ROL, 'unique:roles,nombre,'.$rol->getKey().',id_rol'],
             'descripcion' => ['nullable', 'string', 'max:100'],
             'activo' => ['sometimes', 'boolean'],
             'permisos' => ['sometimes', 'array'],
-            'permisos.*' => ['integer', 'exists:permisos,id_permiso'],
+            'permisos.*' => ['integer', 'distinct', 'exists:permisos,id_permiso'],
+        ], [
+            'nombre.regex' => 'El nombre del rol debe empezar con una letra y solo puede contener letras, números, espacios y los signos / . -',
+            'nombre.unique' => 'Ya existe un rol con ese nombre.',
+            'permisos.*.exists' => 'Selecciona permisos registrados.',
         ]);
         $permisos = $data['permisos'] ?? null;
         unset($data['permisos']);
@@ -74,8 +83,16 @@ class RolController extends Controller
     public function destroy(Rol $rol)
     {
         $this->authorizePermission('gestionar_roles');
-        abort_if($rol->usuarios()->exists(), 422, 'No se puede desactivar un rol con usuarios asignados.');
-        abort_if(in_array($rol->nombre, ['Administrador', 'Cajero/Vendedor'], true), 422, 'El rol es esencial y no puede desactivarse.');
+        $mensaje = match (true) {
+            $rol->usuarios()->exists() => 'No se puede desactivar un rol con usuarios asignados.',
+            in_array($rol->nombre, ['Administrador', 'Cajero/Vendedor'], true) => 'El rol es esencial y no puede desactivarse.',
+            default => null,
+        };
+        if ($mensaje !== null) {
+            abort_if(request()->expectsJson(), 422, $mensaje);
+
+            return redirect()->route('roles.index')->with('error', $mensaje);
+        }
         $rol->update(['activo' => false, 'modificado_por' => auth()->id()]);
         return request()->expectsJson() ? response()->json(['message' => 'Rol desactivado.']) : redirect()->route('roles.index')->with('success', 'Rol desactivado.');
     }

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    private const CREDENCIALES_INVALIDAS = 'Usuario o contraseña incorrectos.';
+
     public function showLoginForm()
     {
         return view('auth.login');
@@ -14,9 +16,16 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // Sin reglas de longitud mínima: un error de formato revelaría la
+        // política de contraseñas. Cualquier fallo usa el mensaje genérico.
         $credentials = $request->validate([
             'nombre_usuario' => ['required', 'string', 'max:30'],
-            'password' => ['required', 'string', 'min:8', 'max:50'],
+            'password' => ['required', 'string', 'max:50'],
+        ], [
+            'nombre_usuario.required' => 'Ingresa tu nombre de usuario.',
+            'password.required' => 'Ingresa tu contraseña.',
+            'nombre_usuario.max' => self::CREDENCIALES_INVALIDAS,
+            'password.max' => self::CREDENCIALES_INVALIDAS,
         ]);
 
         if (! Auth::attempt([
@@ -24,15 +33,24 @@ class AuthController extends Controller
             'password' => $credentials['password'],
             'activo' => true,
         ])) {
-            return response()->json(['message' => 'Credenciales inválidas.'], 422);
+            // Mismo mensaje para usuario inexistente, contraseña errónea o
+            // cuenta inactiva: no se revela si el usuario existe.
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => self::CREDENCIALES_INVALIDAS,
+                    'errors' => ['nombre_usuario' => [self::CREDENCIALES_INVALIDAS]],
+                ], 422);
+            }
+
+            return redirect()->route('login')
+                ->withErrors(['nombre_usuario' => self::CREDENCIALES_INVALIDAS])
+                ->onlyInput('nombre_usuario');
         }
 
         $request->session()->regenerate();
 
-        $branches = Auth::user()->sucursales()->where('activo', true)
-            ->where(function ($query): void {
-                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
-            })->get();
+        // Con acceso global incluye todas las sucursales activas (también las nuevas).
+        $branches = Auth::user()->sucursalesAutorizadas()->get();
         if ($branches->count() === 1) {
             $request->session()->put('sucursal_activa_id', $branches->first()->getKey());
         }
@@ -58,10 +76,7 @@ class AuthController extends Controller
     public function chooseBranch()
     {
         abort_if(in_array(Auth::user()->rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true), 403, 'Los Cajeros no pueden cambiar de sucursal.');
-        $branches = Auth::user()->sucursales()->where('activo', true)
-            ->where(function ($query): void {
-                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
-            })->orderBy('nombre')->get();
+        $branches = Auth::user()->sucursalesAutorizadas()->orderBy('nombre')->get();
         return view('auth.branch', compact('branches'));
     }
 
@@ -69,10 +84,8 @@ class AuthController extends Controller
     {
         abort_if(in_array(Auth::user()->rol?->nombre, ['Cajero', 'Cajero/Vendedor'], true), 403, 'Los Cajeros no pueden cambiar de sucursal.');
         $data = $request->validate(['id_sucursal' => ['required', 'integer', 'exists:sucursales,id_sucursal']]);
-        abort_unless(Auth::user()->sucursales()->whereKey($data['id_sucursal'])->where('activo', true)
-            ->where(function ($query): void {
-                $query->whereNull('usuario_sucursal.fecha_fin')->orWhereDate('usuario_sucursal.fecha_fin', '>=', today());
-            })->exists(), 403);
+        // Solo sucursales activas y autorizadas (todas si tiene acceso global).
+        abort_unless(Auth::user()->puedeUsarSucursal((int) $data['id_sucursal']), 403, 'No tiene acceso a esta sucursal.');
         $request->session()->put('sucursal_activa_id', (int) $data['id_sucursal']);
         return redirect()->intended(route('dashboard'))->with('success', 'Sucursal activa actualizada.');
     }
